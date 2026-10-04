@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using GaleWorkTimer.Domain;
 
 namespace GaleWorkTimer.Data;
 
@@ -19,14 +20,15 @@ internal static class Schema
         var version = Convert.ToInt64(command.ExecuteScalar());
         if (version == 0)
         {
-            command.CommandText = """
+            command.CommandText = $"""
                 CREATE TABLE timers (
                     id INTEGER PRIMARY KEY,
                     name TEXT NOT NULL CHECK (length(trim(name)) > 0),
                     is_archived INTEGER NOT NULL DEFAULT 0 CHECK (is_archived IN (0, 1)),
                     sort_order INTEGER NOT NULL,
                     created_at_ms INTEGER NOT NULL CHECK (created_at_ms >= 0),
-                    updated_at_ms INTEGER NOT NULL CHECK (updated_at_ms >= created_at_ms)
+                    updated_at_ms INTEGER NOT NULL CHECK (updated_at_ms >= created_at_ms),
+                    color_key TEXT NOT NULL DEFAULT '{TimerPalette.DefaultKey}'
                 );
                 CREATE TABLE sessions (
                     id INTEGER PRIMARY KEY,
@@ -48,11 +50,19 @@ internal static class Schema
                 CREATE UNIQUE INDEX one_open_pause_per_session
                     ON pauses(session_id) WHERE resumed_at_ms IS NULL;
                 CREATE INDEX session_pause_history ON pauses(session_id, paused_at_ms, id);
-                PRAGMA user_version = 1;
+                PRAGMA user_version = 2;
                 """;
             command.ExecuteNonQuery();
         }
-        else if (version != 1)
+        else if (version == 1)
+        {
+            command.CommandText = $"""
+                ALTER TABLE timers ADD COLUMN color_key TEXT NOT NULL DEFAULT '{TimerPalette.DefaultKey}';
+                PRAGMA user_version = 2;
+                """;
+            command.ExecuteNonQuery();
+        }
+        else if (version != 2)
         {
             throw new NotSupportedException($"Unsupported database schema version: {version}.");
         }

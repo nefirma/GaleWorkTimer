@@ -2,10 +2,12 @@ using GaleWorkTimer.Domain;
 
 namespace GaleWorkTimer.ViewModels;
 
-public sealed record HistoryRow(string TimerName, SessionSnapshot Snapshot)
+public sealed record HistoryRow(string TimerName, SessionSnapshot Snapshot, string ColorKey = TimerPalette.DefaultKey)
 {
-    public string Status => Snapshot.Session.StoppedAtMs is not null ? "Stopped"
-        : Snapshot.IsPaused ? "Paused" : "Running";
+    public bool IsStopped => Snapshot.Session.StoppedAtMs is not null;
+    public bool IsPaused => !IsStopped && Snapshot.IsPaused;
+    public bool IsRunning => !IsStopped && !Snapshot.IsPaused;
+    public string Status => IsStopped ? "Stopped" : IsPaused ? "Paused" : "Running";
     public string StartText => FormatTimestamp(Snapshot.Session.StartedAtMs);
     public string StopText => Snapshot.Session.StoppedAtMs is long stopped ? FormatTimestamp(stopped) : Status;
     public string ActiveText => FormatDuration(Snapshot.ActiveDuration);

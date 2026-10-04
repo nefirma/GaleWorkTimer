@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using GaleWorkTimer.ViewModels;
+using GaleWorkTimer.Domain;
 
 namespace GaleWorkTimer.Views;
 
@@ -15,6 +16,7 @@ public sealed partial class MainWindow : Window
         this.model = model;
         InitializeComponent();
         DataContext = model;
+        NewColor.SelectedItem = TimerPalette.Get(model.SuggestedColorKey);
     }
 
     private static long NowMs() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -25,7 +27,11 @@ public sealed partial class MainWindow : Window
 
     private void AddTimer(object? sender, RoutedEventArgs e)
     {
-        if (model.CreateTimer(NewName.Text ?? "", NowMs())) NewName.Text = "";
+        if (model.CreateTimer(NewName.Text ?? "", NowMs(), (NewColor.SelectedItem as TimerColor)?.ColorKey))
+        {
+            NewName.Text = "";
+            NewColor.SelectedItem = TimerPalette.Get(model.SuggestedColorKey);
+        }
     }
 
     private void StartTimer(object? sender, RoutedEventArgs e) => model.StartTimer(Row(sender).Id, NowMs());
@@ -41,24 +47,26 @@ public sealed partial class MainWindow : Window
         if (e.Source == Navigation && Navigation.SelectedIndex == 1) model.RefreshHistory(NowMs());
     }
 
-    private async void RenameTimer(object? sender, RoutedEventArgs e)
+    private async void EditTimer(object? sender, RoutedEventArgs e)
     {
         var timer = Row(sender);
         var name = new TextBox { Text = timer.Name };
         Avalonia.Automation.AutomationProperties.SetName(name, "Timer name");
+        var color = new ComboBox { ItemsSource = TimerPalette.Colors, SelectedItem = TimerPalette.Get(timer.ColorKey) };
+        Avalonia.Automation.AutomationProperties.SetName(color, "Timer color");
         var error = new TextBlock { TextWrapping = Avalonia.Media.TextWrapping.Wrap };
         var save = new Button { Content = "Save", IsDefault = true };
         var cancel = new Button { Content = "Cancel", IsCancel = true };
         var dialog = new Window
         {
-            Title = "Rename timer", Width = 440, SizeToContent = SizeToContent.Height,
+            Title = "Edit timer", Width = 440, SizeToContent = SizeToContent.Height,
             CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Content = new StackPanel
             {
                 Margin = new Thickness(24), Spacing = 12,
                 Children =
                 {
-                    new TextBlock { Text = "Name" }, name, error,
+                    new TextBlock { Text = "Name" }, name, new TextBlock { Text = "Color" }, color, error,
                     new StackPanel
                     {
                         Orientation = Orientation.Horizontal, Spacing = 12,
@@ -69,7 +77,9 @@ public sealed partial class MainWindow : Window
         };
         save.Click += (_, _) =>
         {
-            if (model.RenameTimer(timer.Id, name.Text ?? "", NowMs())) dialog.Close();
+            if (color.SelectedItem is not TimerColor selected)
+                error.Text = "Choose a color from the palette.";
+            else if (model.EditTimer(timer.Id, name.Text ?? "", selected.ColorKey, NowMs())) dialog.Close();
             else error.Text = model.ErrorMessage;
         };
         cancel.Click += (_, _) => dialog.Close();

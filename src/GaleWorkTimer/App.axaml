@@ -1,8 +1,56 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:domain="using:GaleWorkTimer.Domain"
+             xmlns:views="using:GaleWorkTimer.Views"
              x:Class="GaleWorkTimer.App"
              RequestedThemeVariant="Default">
+  <Application.Resources>
+    <ResourceDictionary>
+      <views:TimerAccentBrushConverter x:Key="TimerAccentBrushConverter" />
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="StoppedStatusBrush">#B42318</SolidColorBrush>
+          <SolidColorBrush x:Key="PausedStatusBrush">#8A5200</SolidColorBrush>
+          <SolidColorBrush x:Key="RunningStatusBrush">#176B3A</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="StoppedStatusBrush">#F28B82</SolidColorBrush>
+          <SolidColorBrush x:Key="PausedStatusBrush">#E6B95C</SolidColorBrush>
+          <SolidColorBrush x:Key="RunningStatusBrush">#81C995</SolidColorBrush>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+  <Application.DataTemplates>
+    <DataTemplate DataType="{x:Type domain:TimerColor}" x:DataType="domain:TimerColor">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Classes="accent" Text="●" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+      </StackPanel>
+    </DataTemplate>
+  </Application.DataTemplates>
   <Application.Styles>
     <FluentTheme />
+    <Style Selector="TextBlock.accent">
+      <Setter Property="FontSize" Value="20" />
+      <Setter Property="Foreground">
+        <MultiBinding Converter="{StaticResource TimerAccentBrushConverter}">
+          <ReflectionBinding Path="ColorKey" />
+          <ReflectionBinding Path="ActualThemeVariant" RelativeSource="{RelativeSource Self}" />
+        </MultiBinding>
+      </Setter>
+    </Style>
+    <Style Selector="TextBlock.status">
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.status.stopped">
+      <Setter Property="Foreground" Value="{DynamicResource StoppedStatusBrush}" />
+    </Style>
+    <Style Selector="TextBlock.status.paused">
+      <Setter Property="Foreground" Value="{DynamicResource PausedStatusBrush}" />
+    </Style>
+    <Style Selector="TextBlock.status.running">
+      <Setter Property="Foreground" Value="{DynamicResource RunningStatusBrush}" />
+    </Style>
   </Application.Styles>
 </Application>

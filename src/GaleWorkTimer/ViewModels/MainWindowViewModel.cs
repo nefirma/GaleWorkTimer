@@ -4,7 +4,7 @@ using GaleWorkTimer.Services;
 
 namespace GaleWorkTimer.ViewModels;
 
-public sealed record TimerRow(long Id, string Name, TimerState State)
+public sealed record TimerRow(long Id, string Name, TimerState State, string ColorKey = TimerPalette.DefaultKey)
 {
     public string StatusText => State == TimerState.Idle ? "Stopped" : State.ToString();
     public bool CanStart => State == TimerState.Idle;
@@ -19,6 +19,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public IReadOnlyList<TimerRow> Timers { get; private set; } = [];
     public IReadOnlyList<TimerRow> ArchivedTimers { get; private set; } = [];
     public IReadOnlyList<HistoryRow> History { get; private set; } = [];
+    public string SuggestedColorKey => TimerPalette.NextKey(Timers.Count);
     public long? HistorySnapshotAtMs { get; private set; }
     public string SnapshotText => HistorySnapshotAtMs is long atMs
         ? $"Snapshot: {HistoryRow.FormatTimestamp(atMs)} — refresh to update." : "";
@@ -31,8 +32,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         LoadTimers(); // Startup must fail, not present an empty in-memory substitute.
     }
 
-    public bool CreateTimer(string name, long atMs) => Execute(() => service.CreateTimer(name, atMs));
+    public bool CreateTimer(string name, long atMs, string? colorKey = null) => Execute(() => service.CreateTimer(name, atMs, colorKey));
     public bool RenameTimer(long id, string name, long atMs) => Execute(() => service.RenameTimer(id, name, atMs));
+    public bool EditTimer(long id, string name, string colorKey, long atMs) => Execute(() => service.EditTimer(id, name, colorKey, atMs));
     public bool ArchiveTimer(long id, long atMs) => Execute(() => service.ArchiveTimer(id, atMs));
     public bool RestoreTimer(long id, long atMs) => Execute(() => service.UnarchiveTimer(id, atMs));
     public bool StartTimer(long id, long atMs) => Execute(() => service.Start(id, atMs));
@@ -46,7 +48,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             var history = service.GetTimers()
                 .SelectMany(timer => service.GetTimerSessions(timer.Id)
-                    .Select(session => new HistoryRow(timer.Name, service.GetSessionSnapshot(session.Id, snapshotAtMs))))
+                    .Select(session => new HistoryRow(timer.Name, service.GetSessionSnapshot(session.Id, snapshotAtMs), timer.ColorKey)))
                 .OrderByDescending(row => row.Snapshot.Session.StartedAtMs)
                 .ThenByDescending(row => row.Snapshot.Session.Id).ToArray();
             History = history;
@@ -82,7 +84,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 TimerDomainException { Error: TimerError.InvalidTimestamp } =>
                     "The time is not valid for this action. Check the system clock and try again.",
                 TimerDomainException => "This timer or session is no longer available.",
-                ArgumentException => "Enter a non-empty timer name and a valid timestamp.",
+                ArgumentException => "Enter a non-empty timer name, choose a palette color and use a valid timestamp.",
                 _ => "Could not save this change. Please try again."
             });
             try { LoadTimers(); }
@@ -107,13 +109,22 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         var all = service.GetTimers();
         var timers = all.Where(t => !t.IsArchived)
-            .Select(t => new TimerRow(t.Id, t.Name, service.GetTimerState(t.Id))).ToArray();
+            .Select(t => new TimerRow(t.Id, t.Name, service.GetTimerState(t.Id), t.ColorKey)).ToArray();
         var archived = all.Where(t => t.IsArchived)
-            .Select(t => new TimerRow(t.Id, t.Name, TimerState.Idle)).ToArray();
+            .Select(t => new TimerRow(t.Id, t.Name, TimerState.Idle, t.ColorKey)).ToArray();
         Timers = timers;
         ArchivedTimers = archived;
         Changed(nameof(Timers));
         Changed(nameof(ArchivedTimers));
+        var byId = all.ToDictionary(timer => timer.Id);
+        History = History.Select(row =>
+        {
+            var timer = byId[row.Snapshot.Session.TimerId];
+            // Update current metadata without recalculating the explicit duration snapshot.
+            return row.TimerName == timer.Name && row.ColorKey == timer.ColorKey ? row
+                : row with { TimerName = timer.Name, ColorKey = timer.ColorKey };
+        }).ToArray();
+        Changed(nameof(History));
     }
 
     private void SetError(string message)

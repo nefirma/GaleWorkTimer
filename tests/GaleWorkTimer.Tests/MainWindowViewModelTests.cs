@@ -202,5 +202,45 @@ public sealed class MainWindowViewModelTests : IDisposable
         Assert.Equal("42 min", HistoryRow.FormatDuration(TimeSpan.FromMinutes(42)));
     }
 
+    [Fact]
+    public void Timer_accents_and_history_statuses_are_independent_and_edit_updates_existing_snapshots()
+    {
+        using var service = new TimerService(DatabasePath);
+        var model = new MainWindowViewModel(service);
+        Assert.True(model.CreateTimer("A", 0, "green"));
+        Assert.True(model.CreateTimer("B", 0, "red"));
+        Assert.True(model.CreateTimer("C", 0, "blue"));
+        var (a, b, c) = (model.Timers[0].Id, model.Timers[1].Id, model.Timers[2].Id);
+        Assert.True(model.StartTimer(a, 1000));
+        Assert.True(model.PauseTimer(a, 2000));
+        Assert.True(model.StartTimer(b, 1000));
+        Assert.True(model.StartTimer(c, 1000));
+        Assert.True(model.StopTimer(c, 2000));
+        Assert.True(model.RefreshHistory(4000));
+        var paused = model.History.Single(h => h.Snapshot.Session.TimerId == a);
+        var running = model.History.Single(h => h.Snapshot.Session.TimerId == b);
+        var stopped = model.History.Single(h => h.Snapshot.Session.TimerId == c);
+        Assert.Equal(("green", "Paused", false, true, false), (paused.ColorKey, paused.Status, paused.IsStopped, paused.IsPaused, paused.IsRunning));
+        Assert.Equal(("red", "Running", false, false, true), (running.ColorKey, running.Status, running.IsStopped, running.IsPaused, running.IsRunning));
+        Assert.Equal(("blue", "Stopped", true, false, false), (stopped.ColorKey, stopped.Status, stopped.IsStopped, stopped.IsPaused, stopped.IsRunning));
+
+        Assert.True(model.EditTimer(a, "Edited A", "purple", 5000));
+        Assert.Equal("purple", model.Timers.Single(t => t.Id == a).ColorKey);
+        var edited = model.History.Single(h => h.Snapshot.Session.TimerId == a);
+        Assert.Equal("purple", edited.ColorKey);
+        Assert.Equal("Edited A", edited.TimerName);
+        Assert.Equal("Paused", edited.Status);
+        Assert.Same(paused.Snapshot, edited.Snapshot);
+        Assert.Equal(4000, model.HistorySnapshotAtMs); // Metadata edit must not tick duration.
+        Assert.True(model.ArchiveTimer(c, 5000));
+        Assert.True(model.EditTimer(c, "Archived C", "orange", 6000));
+        Assert.Equal("orange", Assert.Single(model.ArchivedTimers).ColorKey);
+        Assert.Equal("orange", model.History.Single(h => h.Snapshot.Session.TimerId == c).ColorKey);
+        Assert.False(model.EditTimer(c, "Bad", "unknown", 7000));
+        Assert.Equal("orange", Assert.Single(model.ArchivedTimers).ColorKey);
+        Assert.Equal("Archived C", model.History.Single(h => h.Snapshot.Session.TimerId == c).TimerName);
+        Assert.Equal("cyan", model.SuggestedColorKey);
+    }
+
     public void Dispose() => Directory.Delete(directory, recursive: true);
 }

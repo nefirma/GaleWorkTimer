@@ -16,7 +16,7 @@ GaleWorkTimer — персональное приложение для учёт�
 
 Главное отличие от обычных time trackers: **во время работы приложение не показывает постоянно меняющийся счётчик времени**.
 
-Пользователь запускает один или несколько таймеров, скрывает приложение в system tray и занимается работой. Время показывается после Pause/Stop либо по явному запросу пользователя через History/Statistics.
+Пользователь запускает один или несколько таймеров, явно выбирает `Hide to tray` (начиная с T3) и занимается работой. Время показывается после Pause/Stop либо по явному запросу пользователя через History/Statistics.
 
 Приложение предназначено для помощи пользователю, а не для контроля, аудита или доказательства отработанного времени.
 
@@ -132,6 +132,7 @@ Timer можно:
 
 - создать;
 - переименовать;
+- выбрать accent color из фиксированной палитры;
 - назначить hotkeys;
 - убрать из активного списка;
 - вернуть в активный список.
@@ -139,6 +140,16 @@ Timer можно:
 Удаление Timer из списка **не удаляет историю**.
 
 Технически это Archive/Unarchive.
+
+Timer имеет user-selectable palette color. Один и тот же текущий accent используется
+в Timers, History и Archived timers как небольшой marker рядом с именем.
+Create/Edit показывают реальные swatches фиксированной палитры, без RGB/hex ввода.
+Новые Timer по умолчанию получают очередной цвет по числу активных Timer;
+существующие Timer при обновлении схемы получают стабильный default `blue`.
+Сохраняется только символический `color_key`, не Brush и не theme-specific hex.
+Sessions не копируют цвет: History использует текущие имя и цвет связанного Timer.
+Edit атомарно сохраняет Name и Color и обновляет их во всех трёх views,
+не пересчитывая duration snapshot. Неизвестный palette key отклоняется до записи.
 
 ---
 
@@ -368,18 +379,18 @@ Total = 60 min
 
 # 10. Application process lifecycle
 
-Каноническое поведение окна (решение T2.1; приоритет над прежними
-формулировками Close → tray в последующих разделах):
+Каноническое поведение окна:
 
 ```text
 X / Close / Exit → полностью завершить application process
 Minimize → обычное сворачивание; application process продолжает работать
 Hide to tray → отдельное действие после появления tray в T3
+Tray Exit → полностью завершить application process
 ```
 
 Использовать штатные platform-native window decorations и controls.
 Close не заменяется на Hide to tray, в том числе после реализации T3.
-В T2.1 Hide to tray отсутствует.
+До T3 Hide to tray отсутствует.
 
 Обычные in-window действия `Minimize` и `Exit` имеют ту же семантику,
 что нативные Minimize и Close соответственно. Explicit `Exit` из будущего
@@ -462,6 +473,12 @@ Schema version хранить через:
 PRAGMA user_version;
 ```
 
+Текущая схема: `user_version = 2`. Новая пустая база создаётся сразу в v2.
+Существующая поддержанная v1 обновляется одной SQLite transaction:
+`ALTER TABLE timers ADD COLUMN color_key TEXT NOT NULL DEFAULT 'blue';`
+и `PRAGMA user_version = 2;`. Timer, Session и Pause данные сохраняются;
+удаление/пересоздание пользовательской базы запрещено. Generic migration framework не нужен.
+
 ---
 
 # 13. Database schema
@@ -475,7 +492,8 @@ CREATE TABLE timers (
     is_archived     INTEGER NOT NULL DEFAULT 0,
     sort_order      INTEGER NOT NULL DEFAULT 0,
     created_at_ms   INTEGER NOT NULL,
-    updated_at_ms   INTEGER NOT NULL
+    updated_at_ms   INTEGER NOT NULL,
+    color_key       TEXT NOT NULL DEFAULT 'blue'
 );
 ```
 
@@ -699,6 +717,19 @@ V1 не требует отдельной системы коррекции cloc
 
 # 20. Timer management UI
 
+UI status labels и общие theme-aware semantic status brushes:
+
+```text
+IDLE    → Stopped → red
+PAUSED  → Paused  → amber/yellow
+RUNNING → Running → green
+```
+
+Эти status colors используются одинаково в Timers и History (включая open status
+в поле Stop). Они независимы от Timer accent color (§3); цвет применяется к
+status marker/text, а не ко всей строке. Palette и status brushes адаптируются
+к Light/Dark theme. Definitions не дублируются между views.
+
 Main view содержит список активных Timer.
 
 Для каждого:
@@ -829,11 +860,8 @@ Timer остаётся доступен через UI.
 
 После запуска существует tray icon.
 
-Close main window:
-
-```text
-→ hide
-```
+Окно скрывается в tray только через явное действие `Hide to tray`.
+Lifecycle Close/Minimize/Exit определён в §10.
 
 Tray menu минимум:
 
@@ -843,7 +871,7 @@ Open
 Timers >
     iOS testing        Running
     Android testing    Paused
-    Documentation      Idle
+    Documentation      Stopped
 
 Settings
 Exit
@@ -1245,7 +1273,7 @@ Export:
 │ 01:12:45                           │
 │ [Resume] [Stop]                    │
 │                                    │
-│ Documentation            Idle      │
+│ Documentation            Stopped   │
 │ [Start]                            │
 │                                    │
 │ [+ Add timer]                      │
@@ -1618,10 +1646,12 @@ all states restored
 ### Tray
 
 - launch;
-- close window;
+- выбрать явное `Hide to tray`;
 - process остаётся;
 - tray icon работает;
 - Open возвращает окно.
+- Close/X и Tray Exit проверить по §10: полный выход без Stop открытых Sessions;
+- Minimize проверить по §10: обычное сворачивание без изменения Timer state.
 
 ### Global hotkeys
 
@@ -1716,7 +1746,7 @@ PAUSED Session не накапливает active time во время shutdown/
 
 ## AC-10 Tray
 
-Main window можно скрыть, приложение остаётся управляемым через tray/hotkeys.
+Явное `Hide to tray` скрывает main window; приложение остаётся управляемым через tray/hotkeys. Close/Minimize следуют §10.
 
 ## AC-11 Hotkeys
 
@@ -1872,7 +1902,7 @@ v1 считается готовой, когда на Windows 11 Галя мож
 1. создать свои Timer;
 2. назначить каждому hotkeys;
 3. запустить несколько одновременно;
-4. скрыть приложение в tray;
+4. скрыть приложение явным `Hide to tray`;
 5. работать без видимого ticking counter;
 6. Pause/Resume/Stop через hotkeys;
 7. перезагрузить Windows во время работы и не потерять Session;

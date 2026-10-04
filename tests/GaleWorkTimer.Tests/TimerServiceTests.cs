@@ -365,7 +365,7 @@ public sealed class TimerServiceTests : IDisposable
         using var database = OpenDatabase();
         using var command = database.CreateCommand();
         command.CommandText = "PRAGMA user_version;";
-        Assert.Equal(1L, command.ExecuteScalar());
+        Assert.Equal(2L, command.ExecuteScalar());
         command.CommandText = "PRAGMA journal_mode;";
         Assert.Equal("wal", command.ExecuteScalar());
         command.CommandText = "PRAGMA foreign_keys;";

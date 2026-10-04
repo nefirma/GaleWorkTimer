@@ -29,16 +29,22 @@ public sealed class TimerService : IDisposable
         }
     }
 
-    public TimerInfo CreateTimer(string name, long atMs)
+    public TimerInfo CreateTimer(string name, long atMs, string? colorKey = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentOutOfRangeException.ThrowIfNegative(atMs);
+        if (colorKey is not null) TimerPalette.Get(colorKey);
         using var transaction = connection.BeginTransaction(deferred: false);
+        if (colorKey is null)
+        {
+            using var count = Command("SELECT count(*) FROM timers WHERE is_archived = 0;", transaction);
+            colorKey = TimerPalette.NextKey(Convert.ToInt32(count.ExecuteScalar()));
+        }
         using var command = Command("""
-            INSERT INTO timers(name, sort_order, created_at_ms, updated_at_ms)
-            VALUES ($name, (SELECT coalesce(max(sort_order) + 1, 0) FROM timers), $at, $at);
+            INSERT INTO timers(name, sort_order, created_at_ms, updated_at_ms, color_key)
+            VALUES ($name, (SELECT coalesce(max(sort_order) + 1, 0) FROM timers), $at, $at, $color);
             SELECT last_insert_rowid();
-            """, transaction, ("$name", name.Trim()), ("$at", atMs));
+            """, transaction, ("$name", name.Trim()), ("$at", atMs), ("$color", colorKey));
         var id = Convert.ToInt64(command.ExecuteScalar());
         var timer = ReadTimer(id, transaction);
         transaction.Commit();
@@ -50,26 +56,34 @@ public sealed class TimerService : IDisposable
     public IReadOnlyList<TimerInfo> GetTimers()
     {
         using var command = Command("""
-            SELECT id, name, is_archived, sort_order, created_at_ms, updated_at_ms
+            SELECT id, name, is_archived, sort_order, created_at_ms, updated_at_ms, color_key
             FROM timers ORDER BY sort_order, id;
             """, null);
         using var reader = command.ExecuteReader();
         var timers = new List<TimerInfo>();
         while (reader.Read())
             timers.Add(new TimerInfo(reader.GetInt64(0), reader.GetString(1), reader.GetBoolean(2),
-                reader.GetInt64(3), reader.GetInt64(4), reader.GetInt64(5)));
+                reader.GetInt64(3), reader.GetInt64(4), reader.GetInt64(5), reader.GetString(6)));
         return timers;
     }
 
-    public void RenameTimer(long timerId, string name, long atMs)
+    public void RenameTimer(long timerId, string name, long atMs) => EditTimerCore(timerId, name, null, atMs);
+
+    public void EditTimer(long timerId, string name, string colorKey, long atMs)
+    {
+        TimerPalette.Get(colorKey);
+        EditTimerCore(timerId, name, colorKey, atMs);
+    }
+
+    private void EditTimerCore(long timerId, string name, string? colorKey, long atMs)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentOutOfRangeException.ThrowIfNegative(atMs);
         using var transaction = connection.BeginTransaction(deferred: false);
         var timer = ReadTimer(timerId, transaction);
         EnsureTimestamp(atMs, timer.UpdatedAtMs);
-        Execute("UPDATE timers SET name = $name, updated_at_ms = $at WHERE id = $id;",
-            transaction, ("$name", name.Trim()), ("$at", atMs), ("$id", timerId));
+        Execute("UPDATE timers SET name = $name, color_key = coalesce($color, color_key), updated_at_ms = $at WHERE id = $id;",
+            transaction, ("$name", name.Trim()), ("$color", colorKey), ("$at", atMs), ("$id", timerId));
         transaction.Commit();
     }
 
@@ -271,14 +285,14 @@ public sealed class TimerService : IDisposable
     private TimerInfo ReadTimer(long timerId, SqliteTransaction? transaction)
     {
         using var command = Command("""
-            SELECT id, name, is_archived, sort_order, created_at_ms, updated_at_ms
+            SELECT id, name, is_archived, sort_order, created_at_ms, updated_at_ms, color_key
             FROM timers WHERE id = $id;
             """, transaction, ("$id", timerId));
         using var reader = command.ExecuteReader();
         if (!reader.Read())
             throw new TimerDomainException(TimerError.TimerNotFound, $"Timer {timerId} does not exist.");
         return new TimerInfo(reader.GetInt64(0), reader.GetString(1), reader.GetBoolean(2),
-            reader.GetInt64(3), reader.GetInt64(4), reader.GetInt64(5));
+            reader.GetInt64(3), reader.GetInt64(4), reader.GetInt64(5), reader.GetString(6));
     }
 
     private SqliteCommand Command(string sql, SqliteTransaction? transaction,

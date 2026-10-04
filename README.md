@@ -11,11 +11,21 @@ cross-platform UI. No Windows integration, network code or elapsed-time polling.
 dotnet run --project src/GaleWorkTimer
 ```
 
-The default **Timers** tab supports Add, Rename, Start, Pause, Resume, Stop and
+The default **Timers** tab supports Add, Edit, Start, Pause, Resume, Stop and
 Remove from list. Timers are displayed in persisted sort order. Running timers
 show only their state, never elapsed time. Archived timers can be restored from
 the **Archived timers** section. Removing an unfinished timer is refused; Stop
 it first. No timer or session data is deleted.
+
+Create and Edit offer ten named palette swatches. A small timer-color marker
+appears in Timers, History and Archived timers. Edit saves Name and Color
+atomically, including for archived timers. Old History rows show the current
+timer name/color without changing their duration snapshot. New timer defaults
+cycle by the number of active timers; upgraded timers receive `blue`.
+
+Timer accents are independent from semantic status colors: **Stopped** (domain
+`Idle`) is red, **Paused** amber, **Running** green. Timers and History use the
+same Light/Dark status resources. No full-row color fill or arbitrary color input.
 
 **History** is read-only and includes archived timers' sessions, newest first,
 with current timer names, local Start/Stop times, status, active/paused durations
@@ -79,10 +89,14 @@ var duration = timers.GetSessionDuration(sessionId,
 
 Available operations:
 
-- `CreateTimer(name, atMs)` returns `TimerInfo`.
+- `CreateTimer(name, atMs, colorKey = null)` returns `TimerInfo` including `ColorKey`;
+  null chooses the next palette default. Explicit unknown keys are rejected.
 - `GetTimer(timerId)` returns persisted metadata.
 - `GetTimers()` returns all persisted timers, including archived ones, in sort order.
 - `RenameTimer(timerId, name, atMs)`.
+- `EditTimer(timerId, name, colorKey, atMs)` atomically saves a valid name/color.
+  `RenameTimer` preserves the current color. `TimerPalette` is the canonical
+  definition of valid symbolic keys and theme-dependent rendered colors.
 - `ArchiveTimer(timerId, atMs)` / `UnarchiveTimer(timerId, atMs)`.
 - `Start(timerId, atMs)` returns the new session ID.
 - `Pause(timerId, atMs)` / `Resume(timerId, atMs)` / `Stop(timerId, atMs)`.
@@ -128,14 +142,17 @@ The specification's 10:00–12:00 example with a 10:45–11:10 pause yields 95 m
 
 ## SQLite schema
 
-Schema version 1 is initialized transactionally using `PRAGMA user_version`.
-Unknown nonzero schema versions are refused; no destructive migration or
-automatic deletion is performed. Initialization uses `PRAGMA foreign_keys = ON`
+Schema version 2 is initialized transactionally using `PRAGMA user_version`.
+Existing supported v1 databases migrate in one immediate transaction with
+`ALTER TABLE timers ADD COLUMN color_key TEXT NOT NULL DEFAULT 'blue'` and
+`PRAGMA user_version = 2`. Existing timer metadata, sessions and pauses are not
+rewritten or deleted. Other nonzero schema versions are refused. There is no
+generic migration framework. Initialization uses `PRAGMA foreign_keys = ON`
 and `PRAGMA journal_mode = WAL`.
 
 | Table | Fields |
 | --- | --- |
-| `timers` | `id`, `name`, `is_archived`, `sort_order`, `created_at_ms`, `updated_at_ms` |
+| `timers` | `id`, `name`, `is_archived`, `sort_order`, `created_at_ms`, `updated_at_ms`, `color_key` |
 | `sessions` | `id`, `timer_id`, `started_at_ms`, nullable `stopped_at_ms`, `created_at_ms`, `updated_at_ms` |
 | `pauses` | `id`, `session_id`, `paused_at_ms`, nullable `resumed_at_ms` |
 
@@ -167,7 +184,10 @@ constraints and failure atomicity; ordinary semantic tests use the public API.
 T2 tests exercise the application-facing ViewModel without rendering: valid
 action mapping, state/metadata persistence, independent timers, safe errors and
 failed-write integrity, History projection and explicit immutable snapshots.
-All 35 accepted T1 tests are retained unchanged. GUI launch and interaction need
+All existing tests remain; the schema-version assertion now expects v2.
+T2.2 tests cover the real v1 migration, field preservation, color persistence/Edit,
+invalid keys, default cycling and independent color/status History projections.
+GUI launch and interaction need
 a real desktop smoke; automated ViewModel tests do not prove pixel layout or
 manual interaction. Windows integrations/packaging and abrupt power loss are
 outside this stage's validation.
