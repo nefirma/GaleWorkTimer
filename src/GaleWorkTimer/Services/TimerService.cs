@@ -174,9 +174,16 @@ public sealed class TimerService : IDisposable
             session = reader.Read() ? ReadSession(reader) : null;
 
         using var pauseQuery = Command("""
-            SELECT id FROM pauses WHERE session_id = $session AND resumed_at_ms IS NULL;
+            SELECT id, paused_at_ms FROM pauses WHERE session_id = $session AND resumed_at_ms IS NULL;
             """, transaction, ("$session", session?.Id));
-        var pauseId = pauseQuery.ExecuteScalar();
+        long? pauseId = null;
+        long pausedAtMs = 0;
+        using (var reader = pauseQuery.ExecuteReader())
+            if (reader.Read())
+            {
+                pauseId = reader.GetInt64(0);
+                pausedAtMs = reader.GetInt64(1);
+            }
         var state = session is null ? TimerState.Idle
             : pauseId is null ? TimerState.Running : TimerState.Paused;
         var allowed = action switch
@@ -207,6 +214,10 @@ public sealed class TimerService : IDisposable
         {
             sessionId = session!.Id;
             EnsureTimestamp(atMs, session.UpdatedAtMs);
+            if (action == TimerAction.Stop && atMs <= session.StartedAtMs)
+                throw new TimerDomainException(TimerError.InvalidTimestamp, "Stop must be later than the session start.");
+            if (pauseId is not null && atMs <= pausedAtMs)
+                throw new TimerDomainException(TimerError.InvalidTimestamp, "Closing a pause requires a timestamp later than Pause.");
             if (action == TimerAction.Pause)
                 Execute("INSERT INTO pauses(session_id, paused_at_ms) VALUES ($session, $at);",
                     transaction, ("$session", sessionId), ("$at", atMs));

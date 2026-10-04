@@ -32,7 +32,7 @@ internal static class Schema
                     id INTEGER PRIMARY KEY,
                     timer_id INTEGER NOT NULL REFERENCES timers(id),
                     started_at_ms INTEGER NOT NULL CHECK (started_at_ms >= 0),
-                    stopped_at_ms INTEGER CHECK (stopped_at_ms >= started_at_ms),
+                    stopped_at_ms INTEGER CHECK (stopped_at_ms > started_at_ms),
                     created_at_ms INTEGER NOT NULL CHECK (created_at_ms >= 0),
                     updated_at_ms INTEGER NOT NULL CHECK (updated_at_ms >= created_at_ms)
                 );
@@ -43,7 +43,7 @@ internal static class Schema
                     id INTEGER PRIMARY KEY,
                     session_id INTEGER NOT NULL REFERENCES sessions(id),
                     paused_at_ms INTEGER NOT NULL CHECK (paused_at_ms >= 0),
-                    resumed_at_ms INTEGER CHECK (resumed_at_ms >= paused_at_ms)
+                    resumed_at_ms INTEGER CHECK (resumed_at_ms > paused_at_ms)
                 );
                 CREATE UNIQUE INDEX one_open_pause_per_session
                     ON pauses(session_id) WHERE resumed_at_ms IS NULL;

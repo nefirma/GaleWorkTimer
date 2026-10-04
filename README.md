@@ -64,8 +64,10 @@ Available operations:
 Pass UTC Unix milliseconds at the operation boundary. Names are trimmed and
 must not be blank. Negative timestamps are rejected. Mutations cannot go
 backwards relative to the timer's last update; session operations also check
-the session's last update. Equal timestamps are valid. A wall-clock rollback
-therefore produces a clear error instead of corrupting interval chronology.
+the session's last update. Stop must be later than Start; Resume or Stop closing
+an open pause must be later than Pause. Other equal timestamps remain valid,
+including Pause at Start and Stop at the last Resume. A wall-clock rollback
+produces a clear error instead of corrupting interval chronology.
 
 Invalid transitions, missing IDs, archive violations and backwards timestamps
 raise `TimerDomainException` with a `TimerError` code. Invalid arguments raise

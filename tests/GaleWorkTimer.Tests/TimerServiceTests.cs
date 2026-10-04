@@ -39,11 +39,11 @@ public sealed class TimerServiceTests : IDisposable
         Assert.Equal(TimerState.Idle, service.GetTimerState(id));
         service.Start(id, 1_000);
         Assert.Equal(TimerState.Running, service.GetTimerState(id));
-        service.Pause(id, 2_000);
+        service.Pause(id, 1_000); // A pause may start at the session's start.
         Assert.Equal(TimerState.Paused, service.GetTimerState(id));
         service.Resume(id, 3_000);
         Assert.Equal(TimerState.Running, service.GetTimerState(id));
-        service.Stop(id, 4_000);
+        service.Stop(id, 3_000); // Stop may equal the last resume, but not Start.
         Assert.Equal(TimerState.Idle, service.GetTimerState(id));
         service.Start(id, 5_000);
         service.Pause(id, 6_000);
@@ -131,6 +131,78 @@ public sealed class TimerServiceTests : IDisposable
             Assert.Equal(TimeSpan.FromMilliseconds(state == TimerState.Paused ? 1_000 : 3_000),
                 reopened.GetSessionDuration(sessions[0].Id));
         }
+    }
+
+    [Theory]
+    [InlineData(false, "Stop")]
+    [InlineData(true, "Resume")]
+    [InlineData(true, "Stop")]
+    public void Equal_endpoint_is_rejected_and_open_intervals_survive_reopening(bool paused, string operation)
+    {
+        long timerId, sessionId;
+        TimerInfo timer;
+        SessionInfo session;
+        using (var service = new TimerService(DatabasePath))
+        {
+            timerId = service.CreateTimer("Work", 1_000).Id;
+            sessionId = service.Start(timerId, 1_000);
+            if (paused) service.Pause(timerId, 2_000);
+            timer = service.GetTimer(timerId);
+            session = Assert.Single(service.GetTimerSessions(timerId));
+            var error = Assert.Throws<TimerDomainException>(() =>
+                Apply(service, timerId, operation, paused ? 2_000 : 1_000));
+            Assert.Equal(TimerError.InvalidTimestamp, error.Error);
+        }
+
+        using var reopened = new TimerService(DatabasePath);
+        Assert.Equal(timer, reopened.GetTimer(timerId));
+        var persistedSession = Assert.Single(reopened.GetTimerSessions(timerId));
+        Assert.Equal(session, persistedSession);
+        Assert.Null(persistedSession.StoppedAtMs);
+        Assert.Equal(paused ? TimerState.Paused : TimerState.Running, reopened.GetTimerState(timerId));
+        Assert.Equal(TimeSpan.FromSeconds(paused ? 1 : 2), reopened.GetSessionDuration(sessionId, 3_000));
+
+        using var database = OpenDatabase();
+        using var command = database.CreateCommand();
+        command.CommandText = "SELECT paused_at_ms, resumed_at_ms FROM pauses WHERE session_id = $session;";
+        command.Parameters.AddWithValue("$session", sessionId);
+        using var reader = command.ExecuteReader();
+        Assert.Equal(paused, reader.Read());
+        if (paused)
+        {
+            Assert.Equal(2_000, reader.GetInt64(0));
+            Assert.True(reader.IsDBNull(1));
+            Assert.False(reader.Read());
+        }
+    }
+
+    [Fact]
+    public void Session_crossing_utc_midnight_has_sixty_minutes_of_active_time()
+    {
+        var startMs = new DateTimeOffset(2026, 10, 3, 23, 30, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
+        var stopMs = new DateTimeOffset(2026, 10, 4, 0, 30, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
+        using var service = new TimerService(DatabasePath);
+        var timerId = service.CreateTimer("Work", startMs).Id;
+        var sessionId = service.Start(timerId, startMs);
+        service.Stop(timerId, stopMs);
+        Assert.Equal(TimeSpan.FromMinutes(60), service.GetSessionDuration(sessionId));
+    }
+
+    [Fact]
+    public void Session_crossing_spring_dst_uses_elapsed_utc_time_not_local_clock_labels()
+    {
+        // New York, 2026-03-08: 02:00 EST jumps to 03:00 EDT.
+        // 01:30 -05:00 = 06:30 UTC; 03:30 -04:00 = 07:30 UTC.
+        var start = new DateTimeOffset(2026, 3, 8, 1, 30, 0, TimeSpan.FromHours(-5));
+        var stop = new DateTimeOffset(2026, 3, 8, 3, 30, 0, TimeSpan.FromHours(-4));
+        var startMs = start.ToUnixTimeMilliseconds();
+        var stopMs = stop.ToUnixTimeMilliseconds();
+        using var service = new TimerService(DatabasePath);
+        var timerId = service.CreateTimer("Work", startMs).Id;
+        var sessionId = service.Start(timerId, startMs);
+        service.Stop(timerId, stopMs);
+        Assert.Equal(TimeSpan.FromHours(2), stop.DateTime - start.DateTime);
+        Assert.Equal(TimeSpan.FromMinutes(60), service.GetSessionDuration(sessionId));
     }
 
     [Fact]
@@ -298,6 +370,12 @@ public sealed class TimerServiceTests : IDisposable
         Assert.Equal("wal", command.ExecuteScalar());
         command.CommandText = "PRAGMA foreign_keys;";
         Assert.Equal(1L, command.ExecuteScalar());
+        command.CommandText = "UPDATE sessions SET stopped_at_ms = started_at_ms WHERE id = $session;";
+        command.Parameters.AddWithValue("$session", sessionId);
+        Assert.Equal(275, Assert.Throws<SqliteException>(() => command.ExecuteNonQuery()).SqliteExtendedErrorCode);
+        command.CommandText = "UPDATE pauses SET resumed_at_ms = paused_at_ms WHERE session_id = $session;";
+        Assert.Equal(275, Assert.Throws<SqliteException>(() => command.ExecuteNonQuery()).SqliteExtendedErrorCode);
+        command.Parameters.Clear();
         command.CommandText = """
             INSERT INTO sessions(timer_id, started_at_ms, created_at_ms, updated_at_ms)
             VALUES ($timer, 3000, 3000, 3000);
