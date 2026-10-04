@@ -368,19 +368,27 @@ Total = 60 min
 
 # 10. Application process lifecycle
 
-Closing main window:
+Каноническое поведение окна (решение T2.1; приоритет над прежними
+формулировками Close → tray в последующих разделах):
 
 ```text
-Close → hide to system tray
+X / Close / Exit → полностью завершить application process
+Minimize → обычное сворачивание; application process продолжает работать
+Hide to tray → отдельное действие после появления tray в T3
 ```
 
-Это не завершает приложение.
+Использовать штатные platform-native window decorations и controls.
+Close не заменяется на Hide to tray, в том числе после реализации T3.
+В T2.1 Hide to tray отсутствует.
 
-Explicit `Exit` из tray действительно завершает process.
+Обычные in-window действия `Minimize` и `Exit` имеют ту же семантику,
+что нативные Minimize и Close соответственно. Explicit `Exit` из будущего
+tray также полностью завершает process.
 
 При этом:
 
-**Exit не останавливает RUNNING sessions.**
+**Close, Exit и Minimize не останавливают RUNNING sessions и не меняют
+состояние PAUSED sessions.**
 
 Session продолжает логически идти по wall clock.
 

@@ -20,6 +20,9 @@ public sealed partial class MainWindow : Window
     private static long NowMs() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     private static TimerRow Row(object? sender) => (TimerRow)((Control)sender!).DataContext!;
 
+    private void MinimizeWindow(object? sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+    private void ExitApplication(object? sender, RoutedEventArgs e) => Close();
+
     private void AddTimer(object? sender, RoutedEventArgs e)
     {
         if (model.CreateTimer(NewName.Text ?? "", NowMs())) NewName.Text = "";

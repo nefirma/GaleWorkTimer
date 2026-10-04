@@ -3,14 +3,50 @@
         xmlns:vm="using:GaleWorkTimer.ViewModels"
         x:Class="GaleWorkTimer.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="GaleWorkTimer" Width="1020" Height="660" MinWidth="760" MinHeight="420">
+        Title="GaleWorkTimer" Width="1020" Height="660" MinWidth="760" MinHeight="420"
+        WindowDecorations="Full" ExtendClientAreaToDecorationsHint="False"
+        CanMinimize="True" CanMaximize="True" CanResize="True">
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="StoppedStatusBrush">#B42318</SolidColorBrush>
+          <SolidColorBrush x:Key="PausedStatusBrush">#8A5200</SolidColorBrush>
+          <SolidColorBrush x:Key="RunningStatusBrush">#176B3A</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="StoppedStatusBrush">#F28B82</SolidColorBrush>
+          <SolidColorBrush x:Key="PausedStatusBrush">#E6B95C</SolidColorBrush>
+          <SolidColorBrush x:Key="RunningStatusBrush">#81C995</SolidColorBrush>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Window.Resources>
   <Window.Styles>
     <Style Selector="Button">
-      <Setter Property="Margin" Value="0,0,8,0" />
+      <Setter Property="Margin" Value="0,0,8,8" />
+    </Style>
+    <Style Selector="TextBlock.status">
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.status.stopped">
+      <Setter Property="Foreground" Value="{DynamicResource StoppedStatusBrush}" />
+    </Style>
+    <Style Selector="TextBlock.status.paused">
+      <Setter Property="Foreground" Value="{DynamicResource PausedStatusBrush}" />
+    </Style>
+    <Style Selector="TextBlock.status.running">
+      <Setter Property="Foreground" Value="{DynamicResource RunningStatusBrush}" />
     </Style>
   </Window.Styles>
   <DockPanel Margin="20">
-    <TextBlock DockPanel.Dock="Top" Text="GaleWorkTimer" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,12" />
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+      <TextBlock Text="GaleWorkTimer" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" />
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Button Content="Minimize" Click="MinimizeWindow" Margin="0" FontSize="12" Padding="12,6" />
+        <Button Content="Exit" Click="ExitApplication" Margin="0" FontSize="12" Padding="12,6" />
+      </StackPanel>
+    </Grid>
     <TextBlock DockPanel.Dock="Top" Text="{Binding ErrorMessage}" TextWrapping="Wrap" Margin="0,0,0,12" />
     <TabControl x:Name="Navigation" SelectionChanged="Navigate">
       <TabItem Header="Timers">
@@ -29,7 +65,12 @@
                       <StackPanel Spacing="10">
                         <Grid ColumnDefinitions="*,Auto">
                           <TextBlock Text="{Binding Name}" FontSize="18" TextWrapping="Wrap" />
-                          <TextBlock Grid.Column="1" Text="{Binding State}" VerticalAlignment="Center" Margin="16,0,0,0" />
+                          <TextBlock Grid.Column="1" Classes="status"
+                                     Classes.stopped="{Binding CanStart}" Classes.running="{Binding CanPause}"
+                                     Classes.paused="{Binding CanResume}" MinWidth="100"
+                                     VerticalAlignment="Center" Margin="16,0,0,0">
+                            <Run Text="● " /><Run Text="{Binding StatusText}" />
+                          </TextBlock>
                         </Grid>
                         <WrapPanel>
                           <Button Content="Start" IsVisible="{Binding CanStart}" Click="StartTimer" />

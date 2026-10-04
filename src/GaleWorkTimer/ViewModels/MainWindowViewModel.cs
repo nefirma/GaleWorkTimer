@@ -6,6 +6,7 @@ namespace GaleWorkTimer.ViewModels;
 
 public sealed record TimerRow(long Id, string Name, TimerState State)
 {
+    public string StatusText => State == TimerState.Idle ? "Stopped" : State.ToString();
     public bool CanStart => State == TimerState.Idle;
     public bool CanPause => State == TimerState.Running;
     public bool CanResume => State == TimerState.Paused;

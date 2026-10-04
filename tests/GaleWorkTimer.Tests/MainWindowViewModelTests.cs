@@ -13,6 +13,17 @@ public sealed class MainWindowViewModelTests : IDisposable
 
     public MainWindowViewModelTests() => Directory.CreateDirectory(directory);
 
+    [Theory]
+    [InlineData(TimerState.Idle, "Stopped")]
+    [InlineData(TimerState.Running, "Running")]
+    [InlineData(TimerState.Paused, "Paused")]
+    public void Timer_status_label_changes_display_copy_not_domain_state(TimerState state, string label)
+    {
+        var row = new TimerRow(1, "Work", state);
+        Assert.Equal(label, row.StatusText);
+        Assert.Equal(state, row.State);
+    }
+
     [Fact]
     public void Timer_list_exposes_only_valid_actions_in_stable_order()
     {
