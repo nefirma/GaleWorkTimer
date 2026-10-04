@@ -47,6 +47,20 @@ public sealed class TimerService : IDisposable
 
     public TimerInfo GetTimer(long timerId) => ReadTimer(timerId, null);
 
+    public IReadOnlyList<TimerInfo> GetTimers()
+    {
+        using var command = Command("""
+            SELECT id, name, is_archived, sort_order, created_at_ms, updated_at_ms
+            FROM timers ORDER BY sort_order, id;
+            """, null);
+        using var reader = command.ExecuteReader();
+        var timers = new List<TimerInfo>();
+        while (reader.Read())
+            timers.Add(new TimerInfo(reader.GetInt64(0), reader.GetString(1), reader.GetBoolean(2),
+                reader.GetInt64(3), reader.GetInt64(4), reader.GetInt64(5)));
+        return timers;
+    }
+
     public void RenameTimer(long timerId, string name, long atMs)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -94,7 +108,10 @@ public sealed class TimerService : IDisposable
         return sessions;
     }
 
-    public TimeSpan GetSessionDuration(long sessionId, long? snapshotAtMs = null)
+    public TimeSpan GetSessionDuration(long sessionId, long? snapshotAtMs = null) =>
+        GetSessionSnapshot(sessionId, snapshotAtMs).ActiveDuration;
+
+    public SessionSnapshot GetSessionSnapshot(long sessionId, long? snapshotAtMs = null)
     {
         // One read transaction prevents mixing a session and pauses from different commits.
         using var transaction = connection.BeginTransaction(deferred: true);
@@ -131,8 +148,12 @@ public sealed class TimerService : IDisposable
         var activeMs = end - session.StartedAtMs;
         foreach (var pause in pauses)
             activeMs -= (pause.End ?? end) - pause.Start;
+        var pausedMs = end - session.StartedAtMs - activeMs;
         transaction.Commit();
-        return TimeSpan.FromTicks(checked(activeMs * TimeSpan.TicksPerMillisecond));
+        return new SessionSnapshot(session,
+            TimeSpan.FromTicks(checked(activeMs * TimeSpan.TicksPerMillisecond)),
+            TimeSpan.FromTicks(checked(pausedMs * TimeSpan.TicksPerMillisecond)),
+            pauses.Count, pauses.Any(p => p.End is null));
     }
 
     public long Start(long timerId, long atMs) => Transition(timerId, atMs, TimerAction.Start);

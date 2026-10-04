@@ -1,0 +1,103 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GaleWorkTimer.ViewModels"
+        x:Class="GaleWorkTimer.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="GaleWorkTimer" Width="1020" Height="660" MinWidth="760" MinHeight="420">
+  <Window.Styles>
+    <Style Selector="Button">
+      <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+  </Window.Styles>
+  <DockPanel Margin="20">
+    <TextBlock DockPanel.Dock="Top" Text="GaleWorkTimer" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,12" />
+    <TextBlock DockPanel.Dock="Top" Text="{Binding ErrorMessage}" TextWrapping="Wrap" Margin="0,0,0,12" />
+    <TabControl x:Name="Navigation" SelectionChanged="Navigate">
+      <TabItem Header="Timers">
+        <DockPanel Margin="0,16,0,0">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="12" Margin="0,0,0,16">
+            <TextBlock Text="Name" VerticalAlignment="Center" />
+            <TextBox x:Name="NewName" AutomationProperties.Name="Timer name" Width="320" />
+            <Button Content="+ Add timer" Click="AddTimer" />
+          </StackPanel>
+          <ScrollViewer>
+            <StackPanel Spacing="16">
+              <ItemsControl ItemsSource="{Binding Timers}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:TimerRow">
+                    <Border BorderThickness="0,0,0,1" BorderBrush="Gray" Padding="0,12">
+                      <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto">
+                          <TextBlock Text="{Binding Name}" FontSize="18" TextWrapping="Wrap" />
+                          <TextBlock Grid.Column="1" Text="{Binding State}" VerticalAlignment="Center" Margin="16,0,0,0" />
+                        </Grid>
+                        <WrapPanel>
+                          <Button Content="Start" IsVisible="{Binding CanStart}" Click="StartTimer" />
+                          <Button Content="Pause" IsVisible="{Binding CanPause}" Click="PauseTimer" />
+                          <Button Content="Resume" IsVisible="{Binding CanResume}" Click="ResumeTimer" />
+                          <Button Content="Stop" IsVisible="{Binding CanStop}" Click="StopTimer" />
+                          <Button Content="Rename" Click="RenameTimer" />
+                          <Button Content="Remove from list" Click="ArchiveTimer" />
+                        </WrapPanel>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Expander Header="Archived timers" HorizontalAlignment="Stretch">
+                <ItemsControl ItemsSource="{Binding ArchivedTimers}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:TimerRow">
+                      <Grid ColumnDefinitions="*,Auto" Margin="0,8">
+                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                        <Button Grid.Column="1" Content="Restore to list" Click="RestoreTimer" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </Expander>
+            </StackPanel>
+          </ScrollViewer>
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="History">
+        <DockPanel Margin="0,16,0,0">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="12" Margin="0,0,0,16">
+            <Button Content="Refresh" Click="RefreshHistory" />
+            <TextBlock Text="{Binding SnapshotText}" VerticalAlignment="Center" TextWrapping="Wrap" />
+          </StackPanel>
+          <ScrollViewer>
+            <ItemsControl ItemsSource="{Binding History}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:HistoryRow">
+                  <Border BorderThickness="0,0,0,1" BorderBrush="Gray" Padding="0,12">
+                    <StackPanel Spacing="8">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{Binding TimerName}" FontSize="18" TextWrapping="Wrap" />
+                        <TextBlock Grid.Column="1" Text="{Binding Status}" VerticalAlignment="Center" Margin="16,0,0,0" />
+                      </Grid>
+                      <WrapPanel>
+                        <TextBlock Text="Start: " />
+                        <TextBlock Text="{Binding StartText}" Margin="0,0,20,0" />
+                        <TextBlock Text="Stop: " />
+                        <TextBlock Text="{Binding StopText}" />
+                      </WrapPanel>
+                      <WrapPanel>
+                        <TextBlock Text="Active: " />
+                        <TextBlock Text="{Binding ActiveText}" Margin="0,0,20,0" />
+                        <TextBlock Text="Paused: " />
+                        <TextBlock Text="{Binding PausedText}" Margin="0,0,20,0" />
+                        <TextBlock Text="Pauses: " />
+                        <TextBlock Text="{Binding Snapshot.PauseCount}" />
+                      </WrapPanel>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </DockPanel>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>

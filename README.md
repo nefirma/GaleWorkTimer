@@ -1,11 +1,40 @@
-# GaleWorkTimer — T1: persistent timer core
+# GaleWorkTimer — T2: basic desktop application
 
-.NET 10 core with SQLite (`Microsoft.Data.Sqlite`). One production assembly and
-one xUnit test project. The production project is a library: T1 adds no UI, CLI,
-background worker, Windows integration, network code or elapsed-time polling.
+.NET 10 / Avalonia 12 desktop executable with the accepted T1 SQLite core
+(`Microsoft.Data.Sqlite`). One production assembly and one xUnit test project.
+Product SSOT: [SPEC.md](SPEC.md); the T2 ticket bounds this stage to basic,
+cross-platform UI. No Windows integration, network code or elapsed-time polling.
 
-The supplied T1 document is the agreed specification for this stage; the full
-product specification was not supplied. T2 is not implemented.
+## Run and use
+
+```bash
+dotnet run --project src/GaleWorkTimer
+```
+
+The default **Timers** tab supports Add, Rename, Start, Pause, Resume, Stop and
+Remove from list. Timers are displayed in persisted sort order. Running timers
+show only their state, never elapsed time. Archived timers can be restored from
+the **Archived timers** section. Removing an unfinished timer is refused; Stop
+it first. No timer or session data is deleted.
+
+**History** is read-only and includes archived timers' sessions, newest first,
+with current timer names, local Start/Stop times, status, active/paused durations
+and pause count. Opening History or pressing Refresh captures one UTC snapshot;
+its values stay fixed until another explicit refresh. Duration display rounds
+down to whole minutes; storage/calculations preserve milliseconds.
+
+The database is `NeFirma/GaleWorkTimer/data.db` under .NET's per-user
+`Environment.SpecialFolder.LocalApplicationData`: normally
+`~/.local/share/NeFirma/GaleWorkTimer/data.db` on Linux and
+`%LOCALAPPDATA%\NeFirma\GaleWorkTimer\data.db` on Windows. The directory is created
+before opening SQLite. A startup failure shows an error instead of using an
+in-memory substitute. Normal UI errors do not show SQL, internal paths or stack
+traces. Tests always pass explicit temporary database paths.
+
+Closing the main window exits normally **without stopping open sessions**.
+Running and Paused timers reconstruct independently on the next launch. T2 has
+no tray, global hotkeys, autostart, notifications, single-instance handling,
+history editing/deletion, statistics, CSV or packaging. T3 is not implemented.
 
 ## Build and test
 
@@ -52,6 +81,7 @@ Available operations:
 
 - `CreateTimer(name, atMs)` returns `TimerInfo`.
 - `GetTimer(timerId)` returns persisted metadata.
+- `GetTimers()` returns all persisted timers, including archived ones, in sort order.
 - `RenameTimer(timerId, name, atMs)`.
 - `ArchiveTimer(timerId, atMs)` / `UnarchiveTimer(timerId, atMs)`.
 - `Start(timerId, atMs)` returns the new session ID.
@@ -60,6 +90,9 @@ Available operations:
 - `GetTimerSessions(timerId)` returns history, including an unfinished session,
   ordered by start timestamp and ID, oldest first.
 - `GetSessionDuration(sessionId, snapshotAtMs = null)` returns active `TimeSpan`.
+- `GetSessionSnapshot(sessionId, snapshotAtMs = null)` returns the session,
+  active/paused durations, pause count and open-pause state from one read transaction.
+  The existing duration API delegates to this same calculation.
 
 Pass UTC Unix milliseconds at the operation boundary. Names are trimmed and
 must not be blank. Negative timestamps are rejected. Mutations cannot go
@@ -131,5 +164,10 @@ constraints, and injected persistence failures after interval writes to prove
 transaction rollback. SQLite-level tests intentionally exercise storage
 constraints and failure atomicity; ordinary semantic tests use the public API.
 
-Windows 11 runtime/packaging, Avalonia and abrupt process-kill/power-loss testing
-are not validated by T1's Linux service-reconstruction tests.
+T2 tests exercise the application-facing ViewModel without rendering: valid
+action mapping, state/metadata persistence, independent timers, safe errors and
+failed-write integrity, History projection and explicit immutable snapshots.
+All 35 accepted T1 tests are retained unchanged. GUI launch and interaction need
+a real desktop smoke; automated ViewModel tests do not prove pixel layout or
+manual interaction. Windows integrations/packaging and abrupt power loss are
+outside this stage's validation.
