@@ -16,7 +16,7 @@ GaleWorkTimer — персональное приложение для учёт�
 
 Главное отличие от обычных time trackers: **во время работы приложение не показывает постоянно меняющийся счётчик времени**.
 
-Пользователь запускает один или несколько таймеров, явно выбирает `Hide to tray` (начиная с T3) и занимается работой. Время показывается после Pause/Stop либо по явному запросу пользователя через History/Statistics.
+Пользователь запускает один или несколько таймеров, явно выбирает `Hide to tray` (начиная с T3) и занимается работой. Основное окно показывает статический Timer Total (§3 и §7); History/Statistics доступны по явному запросу пользователя.
 
 Приложение предназначено для помощи пользователю, а не для контроля, аудита или доказательства отработанного времени.
 
@@ -149,7 +149,28 @@ Create/Edit показывают реальные swatches фиксирован�
 Сохраняется только символический `color_key`, не Brush и не theme-specific hex.
 Sessions не копируют цвет: History использует текущие имя и цвет связанного Timer.
 Edit атомарно сохраняет Name и Color и обновляет их во всех трёх views,
-не пересчитывая duration snapshot. Неизвестный palette key отклоняется до записи.
+не пересчитывая History duration snapshot. Неизвестный palette key отклоняется до записи.
+
+## Cumulative Timer Total
+
+Each Timer displays cumulative active work time across all of its Sessions.
+Это свойство Timer, а не будущая Statistics feature:
+
+```text
+Timer Total = SUM(active duration of every Session belonging to this Timer)
+```
+
+Total выводится для active и archived Timer. Он вычисляется из persisted Sessions
+и Pause intervals по принятой модели §8; mutable counter в Timer не хранится.
+Completed Session использует Start → Stop минус pauses; open PAUSED Session
+добавляет работу только до текущего Pause; open RUNNING Session использует
+явный snapshot timestamp (§7). После restart Total восстанавливается из тех же
+данных; RUNNING включает время закрытого процесса до нового snapshot (§9).
+Пересекающиеся Timer накапливают время независимо (§5).
+
+History сохраняет индивидуальные Sessions, не заменяется Total. Последующее
+редактирование History изменяет derived Total при следующем refresh.
+Формат: `0 min`, `42 min`, `1 h 05 min`, `126 h 15 min`; часы не сворачиваются в дни.
 
 ---
 
@@ -264,10 +285,11 @@ UI может показать короткое сообщение, но не д
 - не рядом с названием Timer;
 - не в title bar.
 
-Главный экран показывает только:
+Главный экран показывает статус и статический cumulative Total (§3):
 
 ```text
 iOS testing    ● Running
+Total: 37 h 25 min
 ```
 
 а не:
@@ -278,9 +300,15 @@ iOS testing    01:37:42
 
 Не должен существовать секундный UI timer, обновляющий elapsed time.
 
+Timer Total использует один явный UTC snapshot timestamp для всего обновления
+списка, включая RUNNING Timer, и остаётся неизменным до следующего refresh event:
+application start, открытие Timers view, явный Refresh или сохранённая Timer
+операция (включая Start/Pause/Resume/Stop). Будущая History-changing операция
+также обновляет Total. Ни periodic loop, ни live current-session elapsed не нужны.
+
 ## Explicit statistics
 
-History/Statistics — исключение.
+History/Statistics также используют статические snapshots.
 
 Если пользователь явно открыл Statistics, приложение может вычислить snapshot на текущий момент.
 
@@ -737,6 +765,7 @@ Main view содержит список активных Timer.
 ```text
 Name
 State
+Total (см. §3 и §7)
 Start / Pause / Resume / Stop controls
 Configured hotkeys
 Edit
@@ -758,7 +787,8 @@ Resume enabled
 Stop enabled
 ```
 
-Во время `RUNNING` elapsed duration отсутствует.
+Во время `RUNNING` отдельная current-session elapsed duration отсутствует;
+отображается только статический Total (§3 и §7).
 
 ## Remove from list
 
@@ -782,6 +812,8 @@ Archived Timer:
 - его hotkeys не регистрируются;
 - остаётся доступным в History/Statistics;
 - может быть восстановлен.
+
+Archived timers view показывает Total по §3; open Session у archived Timer нет.
 
 Timer с open Session архивировать нельзя.
 
@@ -1267,24 +1299,23 @@ Export:
 │                              ⚙     │
 ├────────────────────────────────────┤
 │ iOS testing              Running   │
+│ Total: 37 h 25 min                  │
 │ [Pause] [Stop]                     │
 │                                    │
 │ Android testing          Paused    │
-│ 01:12:45                           │
+│ Total: 12 h 40 min                  │
 │ [Resume] [Stop]                    │
 │                                    │
 │ Documentation            Stopped   │
+│ Total: 8 h 05 min                   │
 │ [Start]                            │
 │                                    │
 │ [+ Add timer]                      │
 └────────────────────────────────────┘
 ```
 
-Во время Running duration отсутствует.
-
-Paused duration статична.
-
-После Stop допустимо показать итог последней Session как статичное значение.
+Все Timer показывают статический cumulative Total по §3 и §7, не elapsed
+текущей или итог только последней Session. Timers view содержит явный Refresh.
 
 ---
 

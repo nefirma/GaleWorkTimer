@@ -41,10 +41,14 @@ public sealed partial class MainWindow : Window
     private void ArchiveTimer(object? sender, RoutedEventArgs e) => model.ArchiveTimer(Row(sender).Id, NowMs());
     private void RestoreTimer(object? sender, RoutedEventArgs e) => model.RestoreTimer(Row(sender).Id, NowMs());
     private void RefreshHistory(object? sender, RoutedEventArgs e) => model.RefreshHistory(NowMs());
+    private void RefreshTimers(object? sender, RoutedEventArgs e) => model.RefreshTimers(NowMs());
 
     private void Navigate(object? sender, SelectionChangedEventArgs e)
     {
-        if (e.Source == Navigation && Navigation.SelectedIndex == 1) model.RefreshHistory(NowMs());
+        if (e.Source != Navigation) return;
+        var snapshotAtMs = NowMs();
+        if (Navigation.SelectedIndex == 0) model.RefreshTimers(snapshotAtMs);
+        else if (Navigation.SelectedIndex == 1) model.RefreshHistory(snapshotAtMs);
     }
 
     private async void EditTimer(object? sender, RoutedEventArgs e)

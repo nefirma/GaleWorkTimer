@@ -31,6 +31,7 @@
             <ComboBox x:Name="NewColor" AutomationProperties.Name="Timer color" Width="150" Margin="8,0,16,8"
                       ItemsSource="{x:Static domain:TimerPalette.Colors}" />
             <Button Content="+ Add timer" Click="AddTimer" />
+            <Button Content="Refresh" Click="RefreshTimers" />
           </WrapPanel>
           <ScrollViewer>
             <StackPanel Spacing="16">
@@ -52,6 +53,7 @@
                             <Run Text="● " /><Run Text="{Binding StatusText}" />
                           </TextBlock>
                         </Grid>
+                        <TextBlock><Run Text="Total: " /><Run Text="{Binding TotalText}" /></TextBlock>
                         <WrapPanel>
                           <Button Content="Start" IsVisible="{Binding CanStart}" Click="StartTimer" />
                           <Button Content="Pause" IsVisible="{Binding CanPause}" Click="PauseTimer" />
@@ -69,12 +71,15 @@
                 <ItemsControl ItemsSource="{Binding ArchivedTimers}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:TimerRow">
-                      <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,8">
-                        <TextBlock Classes="accent" Text="●" VerticalAlignment="Center" Margin="0,0,10,0"
+                      <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto" Margin="0,8">
+                        <TextBlock Grid.RowSpan="2" Classes="accent" Text="●" VerticalAlignment="Center" Margin="0,0,10,0"
                                    ToolTip.Tip="{Binding ColorKey}" AutomationProperties.Name="{Binding ColorKey}" />
                         <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" TextWrapping="Wrap" />
-                        <Button Grid.Column="2" Content="Edit" Click="EditTimer" />
-                        <Button Grid.Column="3" Content="Restore to list" Click="RestoreTimer" />
+                        <TextBlock Grid.Column="1" Grid.Row="1">
+                          <Run Text="Total: " /><Run Text="{Binding TotalText}" />
+                        </TextBlock>
+                        <Button Grid.Column="2" Grid.RowSpan="2" Content="Edit" Click="EditTimer" />
+                        <Button Grid.Column="3" Grid.RowSpan="2" Content="Restore to list" Click="RestoreTimer" />
                       </Grid>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>

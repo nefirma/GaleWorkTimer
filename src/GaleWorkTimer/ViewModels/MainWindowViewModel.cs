@@ -4,8 +4,10 @@ using GaleWorkTimer.Services;
 
 namespace GaleWorkTimer.ViewModels;
 
-public sealed record TimerRow(long Id, string Name, TimerState State, string ColorKey = TimerPalette.DefaultKey)
+public sealed record TimerRow(long Id, string Name, TimerState State, string ColorKey = TimerPalette.DefaultKey,
+    TimeSpan Total = default)
 {
+    public string TotalText => HistoryRow.FormatDuration(Total);
     public string StatusText => State == TimerState.Idle ? "Stopped" : State.ToString();
     public bool CanStart => State == TimerState.Idle;
     public bool CanPause => State == TimerState.Running;
@@ -20,27 +22,43 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public IReadOnlyList<TimerRow> ArchivedTimers { get; private set; } = [];
     public IReadOnlyList<HistoryRow> History { get; private set; } = [];
     public string SuggestedColorKey => TimerPalette.NextKey(Timers.Count);
+    public long TimersSnapshotAtMs { get; private set; }
     public long? HistorySnapshotAtMs { get; private set; }
     public string SnapshotText => HistorySnapshotAtMs is long atMs
         ? $"Snapshot: {HistoryRow.FormatTimestamp(atMs)} — refresh to update." : "";
     public string ErrorMessage { get; private set; } = "";
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public MainWindowViewModel(TimerService service)
+    public MainWindowViewModel(TimerService service, long snapshotAtMs)
     {
         this.service = service;
-        LoadTimers(); // Startup must fail, not present an empty in-memory substitute.
+        LoadTimers(snapshotAtMs); // Startup must fail, not present an empty in-memory substitute.
     }
 
-    public bool CreateTimer(string name, long atMs, string? colorKey = null) => Execute(() => service.CreateTimer(name, atMs, colorKey));
-    public bool RenameTimer(long id, string name, long atMs) => Execute(() => service.RenameTimer(id, name, atMs));
-    public bool EditTimer(long id, string name, string colorKey, long atMs) => Execute(() => service.EditTimer(id, name, colorKey, atMs));
-    public bool ArchiveTimer(long id, long atMs) => Execute(() => service.ArchiveTimer(id, atMs));
-    public bool RestoreTimer(long id, long atMs) => Execute(() => service.UnarchiveTimer(id, atMs));
-    public bool StartTimer(long id, long atMs) => Execute(() => service.Start(id, atMs));
-    public bool PauseTimer(long id, long atMs) => Execute(() => service.Pause(id, atMs));
-    public bool ResumeTimer(long id, long atMs) => Execute(() => service.Resume(id, atMs));
-    public bool StopTimer(long id, long atMs) => Execute(() => service.Stop(id, atMs));
+    public bool CreateTimer(string name, long atMs, string? colorKey = null) => Execute(() => service.CreateTimer(name, atMs, colorKey), atMs);
+    public bool RenameTimer(long id, string name, long atMs) => Execute(() => service.RenameTimer(id, name, atMs), atMs);
+    public bool EditTimer(long id, string name, string colorKey, long atMs) => Execute(() => service.EditTimer(id, name, colorKey, atMs), atMs);
+    public bool ArchiveTimer(long id, long atMs) => Execute(() => service.ArchiveTimer(id, atMs), atMs);
+    public bool RestoreTimer(long id, long atMs) => Execute(() => service.UnarchiveTimer(id, atMs), atMs);
+    public bool StartTimer(long id, long atMs) => Execute(() => service.Start(id, atMs), atMs);
+    public bool PauseTimer(long id, long atMs) => Execute(() => service.Pause(id, atMs), atMs);
+    public bool ResumeTimer(long id, long atMs) => Execute(() => service.Resume(id, atMs), atMs);
+    public bool StopTimer(long id, long atMs) => Execute(() => service.Stop(id, atMs), atMs);
+
+    public bool RefreshTimers(long snapshotAtMs)
+    {
+        try
+        {
+            LoadTimers(snapshotAtMs);
+            SetError("");
+            return true;
+        }
+        catch (Exception)
+        {
+            SetError("Could not load timers. Check the system clock and try Refresh again. No data was changed.");
+            return false;
+        }
+    }
 
     public bool RefreshHistory(long snapshotAtMs)
     {
@@ -65,7 +83,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
-    private bool Execute(Action operation)
+    private bool Execute(Action operation, long snapshotAtMs)
     {
         try
         {
@@ -87,14 +105,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 ArgumentException => "Enter a non-empty timer name, choose a palette color and use a valid timestamp.",
                 _ => "Could not save this change. Please try again."
             });
-            try { LoadTimers(); }
+            try { LoadTimers(snapshotAtMs); }
             catch (Exception) { /* Keep the last persisted view if the DB is unavailable. */ }
             return false;
         }
 
         try
         {
-            LoadTimers();
+            LoadTimers(snapshotAtMs);
             SetError("");
         }
         catch (Exception)
@@ -105,15 +123,17 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         return true;
     }
 
-    private void LoadTimers()
+    private void LoadTimers(long snapshotAtMs)
     {
         var all = service.GetTimers();
+        var totals = service.GetTimerTotals(snapshotAtMs);
         var timers = all.Where(t => !t.IsArchived)
-            .Select(t => new TimerRow(t.Id, t.Name, service.GetTimerState(t.Id), t.ColorKey)).ToArray();
+            .Select(t => new TimerRow(t.Id, t.Name, service.GetTimerState(t.Id), t.ColorKey, totals[t.Id])).ToArray();
         var archived = all.Where(t => t.IsArchived)
-            .Select(t => new TimerRow(t.Id, t.Name, TimerState.Idle, t.ColorKey)).ToArray();
+            .Select(t => new TimerRow(t.Id, t.Name, TimerState.Idle, t.ColorKey, totals[t.Id])).ToArray();
         Timers = timers;
         ArchivedTimers = archived;
+        TimersSnapshotAtMs = snapshotAtMs;
         Changed(nameof(Timers));
         Changed(nameof(ArchivedTimers));
         var byId = all.ToDictionary(timer => timer.Id);

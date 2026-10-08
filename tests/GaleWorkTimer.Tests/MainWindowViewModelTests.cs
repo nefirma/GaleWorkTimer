@@ -35,7 +35,7 @@ public sealed class MainWindowViewModelTests : IDisposable
         service.Start(paused, 1_000);
         service.Pause(paused, 2_000);
 
-        var model = new MainWindowViewModel(service);
+        var model = new MainWindowViewModel(service, 2_000);
         Assert.Equal(new[] { idle, running, paused }, model.Timers.Select(t => t.Id));
         Assert.Equal(new[] { TimerState.Idle, TimerState.Running, TimerState.Paused }, model.Timers.Select(t => t.State));
         Assert.Equal(new[] { true, false, false }, model.Timers.Select(t => t.CanStart));
@@ -50,7 +50,7 @@ public sealed class MainWindowViewModelTests : IDisposable
         long a, b, c, sessionA;
         using (var service = new TimerService(DatabasePath))
         {
-            var model = new MainWindowViewModel(service);
+            var model = new MainWindowViewModel(service, 0);
             Assert.True(model.CreateTimer("  A  ", 0));
             Assert.True(model.CreateTimer("B", 0));
             Assert.True(model.CreateTimer("C", 0));
@@ -70,7 +70,7 @@ public sealed class MainWindowViewModelTests : IDisposable
 
         using (var reopened = new TimerService(DatabasePath))
         {
-            var model = new MainWindowViewModel(reopened);
+            var model = new MainWindowViewModel(reopened, 4_000);
             Assert.Equal(new[] { a, c }, model.Timers.Select(t => t.Id));
             Assert.Equal("Renamed A", model.Timers[0].Name);
             Assert.Equal(TimerState.Paused, model.Timers[0].State);
@@ -88,7 +88,7 @@ public sealed class MainWindowViewModelTests : IDisposable
         }
 
         using var restored = new TimerService(DatabasePath);
-        var restoredModel = new MainWindowViewModel(restored);
+        var restoredModel = new MainWindowViewModel(restored, 8_000);
         Assert.Equal(new[] { a, b, c }, restoredModel.Timers.Select(t => t.Id));
         Assert.All(restoredModel.Timers, row => Assert.Equal(TimerState.Idle, row.State));
         Assert.Equal("Renamed A", restoredModel.Timers[0].Name);
@@ -99,7 +99,7 @@ public sealed class MainWindowViewModelTests : IDisposable
     public void Invalid_inputs_archive_and_database_write_failure_do_not_appear_successful()
     {
         using var service = new TimerService(DatabasePath);
-        var model = new MainWindowViewModel(service);
+        var model = new MainWindowViewModel(service, 0);
         Assert.False(model.CreateTimer("   ", 0));
         Assert.Empty(model.Timers);
         Assert.True(model.CreateTimer("Work", 0));
@@ -153,7 +153,7 @@ public sealed class MainWindowViewModelTests : IDisposable
         service.RenameTimer(closed, "Current name", 140_000);
         service.ArchiveTimer(closed, 145_000);
 
-        var model = new MainWindowViewModel(service);
+        var model = new MainWindowViewModel(service, 150_000);
         Assert.True(model.RefreshHistory(150_000));
         Assert.Equal(new[] { runningSession, pausedSession, closedSession }, model.History.Select(h => h.Snapshot.Session.Id));
         Assert.Equal(new[] { "Running", "Paused", "Stopped" }, model.History.Select(h => h.Status));
@@ -176,7 +176,7 @@ public sealed class MainWindowViewModelTests : IDisposable
         service.Start(timerId, 1_000);
         service.Pause(timerId, 2_000);
         service.Resume(timerId, 5_000);
-        var model = new MainWindowViewModel(service);
+        var model = new MainWindowViewModel(service, 5_000);
         Assert.True(model.RefreshHistory(8_000));
         var row = Assert.Single(model.History);
         Assert.Equal("Running", row.Status);
@@ -206,7 +206,7 @@ public sealed class MainWindowViewModelTests : IDisposable
     public void Timer_accents_and_history_statuses_are_independent_and_edit_updates_existing_snapshots()
     {
         using var service = new TimerService(DatabasePath);
-        var model = new MainWindowViewModel(service);
+        var model = new MainWindowViewModel(service, 0);
         Assert.True(model.CreateTimer("A", 0, "green"));
         Assert.True(model.CreateTimer("B", 0, "red"));
         Assert.True(model.CreateTimer("C", 0, "blue"));
@@ -240,6 +240,49 @@ public sealed class MainWindowViewModelTests : IDisposable
         Assert.Equal("orange", Assert.Single(model.ArchivedTimers).ColorKey);
         Assert.Equal("Archived C", model.History.Single(h => h.Snapshot.Session.TimerId == c).TimerName);
         Assert.Equal("cyan", model.SuggestedColorKey);
+    }
+
+    [Fact]
+    public void Timer_total_projection_is_a_shared_static_snapshot_and_preserves_session_history()
+    {
+        const long minute = 60_000;
+        using var service = new TimerService(DatabasePath);
+        var a = service.CreateTimer("Work", 0, "purple").Id;
+        var b = service.CreateTimer("Other", 0, "red").Id;
+        service.Start(a, 0);
+        service.Stop(a, 120 * minute);
+        service.Start(a, 150 * minute);
+        service.Start(b, 120 * minute);
+        var model = new MainWindowViewModel(service, 180 * minute);
+        var row = model.Timers.Single(t => t.Id == a);
+        Assert.Equal(("Work", "purple", "Running", "2 h 30 min"),
+            (row.Name, row.ColorKey, row.StatusText, row.TotalText));
+        Assert.Equal(TimeSpan.FromMinutes(150), row.Total);
+        Assert.Equal(TimeSpan.FromHours(1), model.Timers.Single(t => t.Id == b).Total);
+        Assert.Equal(180 * minute, model.TimersSnapshotAtMs);
+        Assert.True(model.RefreshHistory(190 * minute));
+        var history = model.History.Single(h => h.Snapshot.Session.TimerId == b);
+        Assert.Same(row, model.Timers.Single(t => t.Id == a)); // History refresh does not tick Timer Total.
+        Assert.Equal(TimeSpan.FromMinutes(150), row.Total);
+        Assert.True(model.RefreshTimers(195 * minute));
+        Assert.Equal("2 h 45 min", model.Timers.Single(t => t.Id == a).TotalText);
+        Assert.Equal("1 h 15 min", model.Timers.Single(t => t.Id == b).TotalText);
+        Assert.True(model.PauseTimer(a, 200 * minute));
+        Assert.Equal("2 h 50 min", model.Timers.Single(t => t.Id == a).TotalText);
+        Assert.True(model.RefreshTimers(260 * minute));
+        Assert.Equal("2 h 50 min", model.Timers.Single(t => t.Id == a).TotalText);
+        Assert.False(model.RefreshTimers(199 * minute));
+        Assert.Equal(260 * minute, model.TimersSnapshotAtMs);
+        Assert.True(model.ResumeTimer(a, 260 * minute));
+        Assert.True(model.StopTimer(a, 280 * minute));
+        Assert.Equal("3 h 10 min", model.Timers.Single(t => t.Id == a).TotalText);
+        Assert.True(model.ArchiveTimer(a, 300 * minute));
+        Assert.Equal("3 h 10 min", Assert.Single(model.ArchivedTimers).TotalText);
+        Assert.Same(history, model.History.Single(h => h.Snapshot.Session.TimerId == b));
+        Assert.True(model.RefreshHistory(300 * minute));
+        Assert.Equal(2, model.History.Count(h => h.Snapshot.Session.TimerId == a));
+        Assert.Equal("0 min", HistoryRow.FormatDuration(TimeSpan.Zero));
+        Assert.Equal("126 h 15 min", HistoryRow.FormatDuration(TimeSpan.FromMinutes(7575)));
     }
 
     public void Dispose() => Directory.Delete(directory, recursive: true);

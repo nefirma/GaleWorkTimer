@@ -26,7 +26,7 @@ public sealed partial class App : Application
                 var directory = Path.Combine(root, "NeFirma", "GaleWorkTimer");
                 Directory.CreateDirectory(directory);
                 service = new TimerService(Path.Combine(directory, "data.db"));
-                desktop.MainWindow = new MainWindow(new MainWindowViewModel(service));
+                desktop.MainWindow = new MainWindow(new MainWindowViewModel(service, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
                 desktop.Exit += (_, _) => service.Dispose(); // Never Stop sessions on exit.
             }
             catch (Exception)

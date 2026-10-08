@@ -125,6 +125,37 @@ public sealed class TimerService : IDisposable
     public TimeSpan GetSessionDuration(long sessionId, long? snapshotAtMs = null) =>
         GetSessionSnapshot(sessionId, snapshotAtMs).ActiveDuration;
 
+    public IReadOnlyDictionary<long, TimeSpan> GetTimerTotals(long snapshotAtMs)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(snapshotAtMs);
+        // One statement loads all timers, sessions and pauses at the same SQLite read snapshot.
+        using var command = Command("""
+            SELECT s.id, s.timer_id, s.started_at_ms, s.stopped_at_ms, s.created_at_ms, s.updated_at_ms,
+                p.paused_at_ms, p.resumed_at_ms, t.id
+            FROM timers t LEFT JOIN sessions s ON s.timer_id = t.id
+            LEFT JOIN pauses p ON p.session_id = s.id;
+            """, null);
+        using var reader = command.ExecuteReader();
+        var totals = new Dictionary<long, TimeSpan>();
+        var sessions = new Dictionary<long, (SessionInfo Session, List<(long Start, long? End)> Pauses)>();
+        while (reader.Read())
+        {
+            totals.TryAdd(reader.GetInt64(8), TimeSpan.Zero);
+            if (reader.IsDBNull(0)) continue;
+            var id = reader.GetInt64(0);
+            if (!sessions.TryGetValue(id, out var entry))
+            {
+                entry = (ReadSession(reader), []);
+                sessions.Add(id, entry);
+            }
+            if (!reader.IsDBNull(6))
+                entry.Pauses.Add((reader.GetInt64(6), reader.IsDBNull(7) ? null : reader.GetInt64(7)));
+        }
+        foreach (var (session, pauses) in sessions.Values)
+            totals[session.TimerId] += CalculateSnapshot(session, pauses, snapshotAtMs).ActiveDuration;
+        return totals;
+    }
+
     public SessionSnapshot GetSessionSnapshot(long sessionId, long? snapshotAtMs = null)
     {
         // One read transaction prevents mixing a session and pauses from different commits.
@@ -149,6 +180,14 @@ public sealed class TimerService : IDisposable
             while (reader.Read())
                 pauses.Add((reader.GetInt64(0), reader.IsDBNull(1) ? null : reader.GetInt64(1)));
 
+        var snapshot = CalculateSnapshot(session, pauses, snapshotAtMs);
+        transaction.Commit();
+        return snapshot;
+    }
+
+    private static SessionSnapshot CalculateSnapshot(SessionInfo session, List<(long Start, long? End)> pauses,
+        long? snapshotAtMs)
+    {
         long end;
         if (session.StoppedAtMs is long stoppedAtMs)
             end = stoppedAtMs;
@@ -163,7 +202,6 @@ public sealed class TimerService : IDisposable
         foreach (var pause in pauses)
             activeMs -= (pause.End ?? end) - pause.Start;
         var pausedMs = end - session.StartedAtMs - activeMs;
-        transaction.Commit();
         return new SessionSnapshot(session,
             TimeSpan.FromTicks(checked(activeMs * TimeSpan.TicksPerMillisecond)),
             TimeSpan.FromTicks(checked(pausedMs * TimeSpan.TicksPerMillisecond)),
