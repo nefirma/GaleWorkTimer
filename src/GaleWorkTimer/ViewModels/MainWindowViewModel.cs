@@ -10,6 +10,7 @@ public sealed record TimerRow(long Id, string Name, TimerState State, string Col
     public string TotalText => HistoryRow.FormatDuration(Total);
     public string StatusText => State == TimerState.Idle ? "Stopped" : State.ToString();
     public bool CanStart => State == TimerState.Idle;
+    public bool CanDelete => State == TimerState.Idle;
     public bool CanPause => State == TimerState.Running;
     public bool CanResume => State == TimerState.Paused;
     public bool CanStop => State != TimerState.Idle;
@@ -40,6 +41,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public bool EditTimer(long id, string name, string colorKey, long atMs) => Execute(() => service.EditTimer(id, name, colorKey, atMs), atMs);
     public bool ArchiveTimer(long id, long atMs) => Execute(() => service.ArchiveTimer(id, atMs), atMs);
     public bool RestoreTimer(long id, long atMs) => Execute(() => service.UnarchiveTimer(id, atMs), atMs);
+    public bool DeleteTimer(long id, long snapshotAtMs) => Execute(() => service.DeleteTimer(id), snapshotAtMs);
     public bool StartTimer(long id, long atMs) => Execute(() => service.Start(id, atMs), atMs);
     public bool PauseTimer(long id, long atMs) => Execute(() => service.Pause(id, atMs), atMs);
     public bool ResumeTimer(long id, long atMs) => Execute(() => service.Resume(id, atMs), atMs);
@@ -95,6 +97,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             {
                 TimerDomainException { Error: TimerError.ActiveTimerCannotBeArchived } =>
                     "Stop this timer before removing it from the list.",
+                TimerDomainException { Error: TimerError.ActiveTimerCannotBeDeleted } =>
+                    "Stop this timer before deleting it.",
                 TimerDomainException { Error: TimerError.ArchivedTimerCannotStart } =>
                     "Restore this timer before starting it.",
                 TimerDomainException { Error: TimerError.InvalidTransition } =>
@@ -137,7 +141,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         Changed(nameof(Timers));
         Changed(nameof(ArchivedTimers));
         var byId = all.ToDictionary(timer => timer.Id);
-        History = History.Select(row =>
+        History = History.Where(row => byId.ContainsKey(row.Snapshot.Session.TimerId)).Select(row =>
         {
             var timer = byId[row.Snapshot.Session.TimerId];
             // Update current metadata without recalculating the explicit duration snapshot.

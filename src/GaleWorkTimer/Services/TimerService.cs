@@ -90,6 +90,21 @@ public sealed class TimerService : IDisposable
     public void ArchiveTimer(long timerId, long atMs) => SetArchived(timerId, true, atMs);
     public void UnarchiveTimer(long timerId, long atMs) => SetArchived(timerId, false, atMs);
 
+    public void DeleteTimer(long timerId)
+    {
+        using var transaction = connection.BeginTransaction(deferred: false);
+        ReadTimer(timerId, transaction);
+        using var query = Command("SELECT 1 FROM sessions WHERE timer_id = $id AND stopped_at_ms IS NULL;",
+            transaction, ("$id", timerId));
+        if (query.ExecuteScalar() is not null)
+            throw new TimerDomainException(TimerError.ActiveTimerCannotBeDeleted, "Stop the timer before deleting it.");
+        Execute("DELETE FROM pauses WHERE session_id IN (SELECT id FROM sessions WHERE timer_id = $id);",
+            transaction, ("$id", timerId));
+        Execute("DELETE FROM sessions WHERE timer_id = $id;", transaction, ("$id", timerId));
+        Execute("DELETE FROM timers WHERE id = $id;", transaction, ("$id", timerId));
+        transaction.Commit();
+    }
+
     private void SetArchived(long timerId, bool archived, long atMs)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(atMs);

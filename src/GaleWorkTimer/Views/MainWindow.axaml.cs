@@ -51,6 +51,44 @@ public sealed partial class MainWindow : Window
         else if (Navigation.SelectedIndex == 1) model.RefreshHistory(snapshotAtMs);
     }
 
+    private async void DeleteTimer(object? sender, RoutedEventArgs e)
+    {
+        var timer = Row(sender);
+        if (!timer.CanDelete) return;
+        var cancel = new Button { Content = "Cancel", IsDefault = true, IsCancel = true };
+        var delete = new Button { Content = "Delete" };
+        delete.Classes.Add("destructive");
+        var error = new TextBlock { TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+        var dialog = new Window
+        {
+            Title = "Delete timer", Width = 460, SizeToContent = SizeToContent.Height,
+            CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new StackPanel
+            {
+                Margin = new Thickness(24), Spacing = 16,
+                Children =
+                {
+                    new TextBlock { Text = $"Delete \"{timer.Name}\"?", TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                        FontWeight = Avalonia.Media.FontWeight.SemiBold },
+                    new TextBlock { Text = "This will permanently delete the timer and all of its history.\nThis action cannot be undone.",
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap },
+                    error,
+                    new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12,
+                        HorizontalAlignment = HorizontalAlignment.Right, Children = { cancel, delete } }
+                }
+            }
+        };
+        cancel.Click += (_, _) => dialog.Close();
+        delete.Click += (_, _) =>
+        {
+            // The service rechecks Stopped in the write transaction, even if the dialog's row is stale.
+            if (model.DeleteTimer(timer.Id, NowMs())) dialog.Close();
+            else error.Text = model.ErrorMessage;
+        };
+        dialog.Opened += (_, _) => cancel.Focus();
+        await dialog.ShowDialog(this);
+    }
+
     private async void EditTimer(object? sender, RoutedEventArgs e)
     {
         var timer = Row(sender);

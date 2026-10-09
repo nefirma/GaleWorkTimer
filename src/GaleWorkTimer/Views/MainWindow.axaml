@@ -40,12 +40,9 @@
                   <DataTemplate x:DataType="vm:TimerRow">
                     <Border BorderThickness="0,0,0,1" BorderBrush="Gray" Padding="0,12">
                       <StackPanel Spacing="10">
+                        <TextBlock Classes="timerTitle" Text="{Binding Name}" />
                         <Grid ColumnDefinitions="*,Auto">
-                          <Grid ColumnDefinitions="Auto,*">
-                            <TextBlock Classes="accent" Text="●" VerticalAlignment="Center" Margin="0,0,10,0"
-                                       ToolTip.Tip="{Binding ColorKey}" AutomationProperties.Name="{Binding ColorKey}" />
-                            <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="18" TextWrapping="Wrap" />
-                          </Grid>
+                          <TextBlock VerticalAlignment="Center"><Run Text="Total: " /><Run Text="{Binding TotalText}" /></TextBlock>
                           <TextBlock Grid.Column="1" Classes="status"
                                      Classes.stopped="{Binding CanStart}" Classes.running="{Binding CanPause}"
                                      Classes.paused="{Binding CanResume}" MinWidth="100"
@@ -53,7 +50,6 @@
                             <Run Text="● " /><Run Text="{Binding StatusText}" />
                           </TextBlock>
                         </Grid>
-                        <TextBlock><Run Text="Total: " /><Run Text="{Binding TotalText}" /></TextBlock>
                         <WrapPanel>
                           <Button Content="Start" IsVisible="{Binding CanStart}" Click="StartTimer" />
                           <Button Content="Pause" IsVisible="{Binding CanPause}" Click="PauseTimer" />
@@ -61,6 +57,7 @@
                           <Button Content="Stop" IsVisible="{Binding CanStop}" Click="StopTimer" />
                           <Button Content="Edit" Click="EditTimer" />
                           <Button Content="Remove from list" Click="ArchiveTimer" />
+                          <Button Classes="destructive" Content="Delete" IsEnabled="{Binding CanDelete}" Click="DeleteTimer" />
                         </WrapPanel>
                       </StackPanel>
                     </Border>
@@ -71,16 +68,15 @@
                 <ItemsControl ItemsSource="{Binding ArchivedTimers}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:TimerRow">
-                      <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto" Margin="0,8">
-                        <TextBlock Grid.RowSpan="2" Classes="accent" Text="●" VerticalAlignment="Center" Margin="0,0,10,0"
-                                   ToolTip.Tip="{Binding ColorKey}" AutomationProperties.Name="{Binding ColorKey}" />
-                        <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" TextWrapping="Wrap" />
-                        <TextBlock Grid.Column="1" Grid.Row="1">
-                          <Run Text="Total: " /><Run Text="{Binding TotalText}" />
-                        </TextBlock>
-                        <Button Grid.Column="2" Grid.RowSpan="2" Content="Edit" Click="EditTimer" />
-                        <Button Grid.Column="3" Grid.RowSpan="2" Content="Restore to list" Click="RestoreTimer" />
-                      </Grid>
+                      <StackPanel Spacing="10" Margin="0,8">
+                        <TextBlock Classes="timerTitle" Text="{Binding Name}" />
+                        <TextBlock><Run Text="Total: " /><Run Text="{Binding TotalText}" /></TextBlock>
+                        <WrapPanel>
+                          <Button Content="Edit" Click="EditTimer" />
+                          <Button Content="Restore to list" Click="RestoreTimer" />
+                          <Button Classes="destructive" Content="Delete" IsEnabled="{Binding CanDelete}" Click="DeleteTimer" />
+                        </WrapPanel>
+                      </StackPanel>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
@@ -102,11 +98,7 @@
                   <Border BorderThickness="0,0,0,1" BorderBrush="Gray" Padding="0,12">
                     <StackPanel Spacing="8">
                       <Grid ColumnDefinitions="*,Auto">
-                        <Grid ColumnDefinitions="Auto,*">
-                          <TextBlock Classes="accent" Text="●" VerticalAlignment="Center" Margin="0,0,10,0"
-                                     ToolTip.Tip="{Binding ColorKey}" AutomationProperties.Name="{Binding ColorKey}" />
-                          <TextBlock Grid.Column="1" Text="{Binding TimerName}" FontSize="18" TextWrapping="Wrap" />
-                        </Grid>
+                        <TextBlock Classes="timerTitle" Text="{Binding TimerName}" />
                         <TextBlock Grid.Column="1" Classes="status" Classes.stopped="{Binding IsStopped}"
                                    Classes.running="{Binding IsRunning}" Classes.paused="{Binding IsPaused}"
                                    MinWidth="100" VerticalAlignment="Center" Margin="16,0,0,0">

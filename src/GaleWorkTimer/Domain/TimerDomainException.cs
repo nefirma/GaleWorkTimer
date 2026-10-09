@@ -7,7 +7,8 @@ public enum TimerError
     InvalidTransition,
     ActiveTimerCannotBeArchived,
     ArchivedTimerCannotStart,
-    InvalidTimestamp
+    InvalidTimestamp,
+    ActiveTimerCannotBeDeleted
 }
 
 public sealed class TimerDomainException(TimerError error, string message) : InvalidOperationException(message)

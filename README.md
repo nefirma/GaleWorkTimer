@@ -1,4 +1,4 @@
-# GaleWorkTimer — T2: basic desktop application
+# GaleWorkTimer — T2.4: deletion and stronger timer colors
 
 .NET 10 / Avalonia 12 desktop executable with the accepted T1 SQLite core
 (`Microsoft.Data.Sqlite`). One production assembly and one xUnit test project.
@@ -12,13 +12,22 @@ dotnet run --project src/GaleWorkTimer
 ```
 
 The default **Timers** tab supports Add, Edit, Start, Pause, Resume, Stop and
-Remove from list. Timers are displayed in persisted sort order. Running timers
-show only their state, never elapsed time. Archived timers can be restored from
+Remove from list. Timers are displayed in persisted sort order and show cumulative
+active Total across all sessions, excluding pauses. Running totals are static
+snapshots, updated on startup, Timers navigation, Refresh or timer actions;
+there is no live current-session counter. Archived timers can be restored from
 the **Archived timers** section. Removing an unfinished timer is refused; Stop
-it first. No timer or session data is deleted.
+it first. Archive preserves all history. **Delete** is separate and irreversible:
+only Stopped timers (including archived) can be deleted, after explicit confirmation
+that all history will be removed. Cancel is the safe default. Running/Paused
+timers must be stopped manually first. One SQLite transaction deletes dependent
+pauses, sessions and the timer; any failure rolls back all records.
 
-Create and Edit offer ten named palette swatches. A small timer-color marker
-appears in Timers, History and Archived timers. Edit saves Name and Color
+Create and Edit offer ten large named palette swatches. Saturated timer colors
+appear as prominent title backgrounds in Timers, History and Archived timers,
+with automatically contrasting black/white text. The body stays neutral and
+status colors remain separate. All ten existing symbolic keys still resolve;
+no color-data migration is needed. Edit saves Name and Color
 atomically, including for archived timers. Old History rows show the current
 timer name/color without changing their duration snapshot. New timer defaults
 cycle by the number of active timers; upgraded timers receive `blue`.
@@ -44,7 +53,7 @@ traces. Tests always pass explicit temporary database paths.
 Closing the main window exits normally **without stopping open sessions**.
 Running and Paused timers reconstruct independently on the next launch. T2 has
 no tray, global hotkeys, autostart, notifications, single-instance handling,
-history editing/deletion, statistics, CSV or packaging. T3 is not implemented.
+individual history editing/deletion, statistics, CSV or installer. T3 is not implemented.
 
 ## Build and test
 
@@ -93,11 +102,15 @@ Available operations:
   null chooses the next palette default. Explicit unknown keys are rejected.
 - `GetTimer(timerId)` returns persisted metadata.
 - `GetTimers()` returns all persisted timers, including archived ones, in sort order.
+- `GetTimerTotals(snapshotAtMs)` returns derived active totals for all timers from
+  one batch query; no mutable total is persisted.
 - `RenameTimer(timerId, name, atMs)`.
 - `EditTimer(timerId, name, colorKey, atMs)` atomically saves a valid name/color.
   `RenameTimer` preserves the current color. `TimerPalette` is the canonical
   definition of valid symbolic keys and theme-dependent rendered colors.
 - `ArchiveTimer(timerId, atMs)` / `UnarchiveTimer(timerId, atMs)`.
+- `DeleteTimer(timerId)` permanently deletes a Stopped timer and all its history
+  atomically; an unfinished session raises `ActiveTimerCannotBeDeleted`.
 - `Start(timerId, atMs)` returns the new session ID.
 - `Pause(timerId, atMs)` / `Resume(timerId, atMs)` / `Stop(timerId, atMs)`.
 - `GetTimerState(timerId)` returns `Idle`, `Running` or `Paused`.
@@ -169,9 +182,9 @@ protect unfinished-interval uniqueness. Duration reads use one read transaction
 so session and pause data come from the same committed snapshot. Connections
 disable pooling, so disposal closes the real database handle.
 
-Archiving refuses any unfinished session and never deletes history. No deletion
-API is provided. Sort order is assigned incrementally at creation; editing order
-is not part of T1.
+Archiving refuses any unfinished session and never deletes history. Permanent
+Timer deletion is explicit, Stopped-only and transactional. Sort order is assigned
+incrementally at creation; editing order is not part of T1.
 
 ## Validation boundary
 
@@ -187,6 +200,9 @@ failed-write integrity, History projection and explicit immutable snapshots.
 All existing tests remain; the schema-version assertion now expects v2.
 T2.2 tests cover the real v1 migration, field preservation, color persistence/Edit,
 invalid keys, default cycling and independent color/status History projections.
+T2.3 tests cover cumulative totals and immutable running snapshots. T2.4 tests
+cover stopped/archived deletion, active-state rejection, dependent-row rollback,
+ViewModel history removal and black/white palette contrast in both themes.
 GUI launch and interaction need
 a real desktop smoke; automated ViewModel tests do not prove pixel layout or
 manual interaction. Windows integrations/packaging and abrupt power loss are

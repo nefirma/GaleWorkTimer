@@ -14,6 +14,9 @@ public sealed class TimerAccentBrushConverter : IMultiValueConverter
         if (values.Count != 2 || values[0] is not string key || values[1] is not ThemeVariant theme)
             return AvaloniaProperty.UnsetValue;
         var color = TimerPalette.Get(key);
-        return new SolidColorBrush(Color.Parse(theme == ThemeVariant.Dark ? color.Dark : color.Light));
+        var dark = theme == ThemeVariant.Dark;
+        var hex = parameter is "Foreground" ? (dark ? color.DarkForeground : color.LightForeground)
+            : (dark ? color.Dark : color.Light);
+        return new SolidColorBrush(Color.Parse(hex));
     }
 }

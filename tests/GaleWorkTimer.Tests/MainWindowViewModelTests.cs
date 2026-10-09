@@ -285,5 +285,49 @@ public sealed class MainWindowViewModelTests : IDisposable
         Assert.Equal("126 h 15 min", HistoryRow.FormatDuration(TimeSpan.FromMinutes(7575)));
     }
 
+    [Fact]
+    public void Delete_removes_only_matching_history_and_preserves_other_snapshots_and_failed_views()
+    {
+        using var service = new TimerService(DatabasePath);
+        var a = service.CreateTimer("Delete", 0).Id;
+        var b = service.CreateTimer("Keep", 0).Id;
+        service.Start(a, 1000);
+        service.Pause(a, 2000);
+        service.Stop(a, 3000);
+        service.Start(b, 1000);
+        var model = new MainWindowViewModel(service, 4000);
+        Assert.True(model.Timers.Single(t => t.Id == a).CanDelete);
+        Assert.False(model.Timers.Single(t => t.Id == b).CanDelete);
+        Assert.False(model.DeleteTimer(b, 4000));
+        Assert.Equal("Stop this timer before deleting it.", model.ErrorMessage);
+        Assert.True(model.PauseTimer(b, 5000));
+        Assert.False(model.Timers.Single(t => t.Id == b).CanDelete);
+        Assert.False(model.DeleteTimer(b, 5000));
+        Assert.True(model.ArchiveTimer(a, 5000));
+        Assert.True(Assert.Single(model.ArchivedTimers).CanDelete);
+        Assert.True(model.RefreshHistory(6000));
+        var kept = model.History.Single(h => h.Snapshot.Session.TimerId == b);
+        using (var database = new SqliteConnection($"Data Source={DatabasePath};Pooling=False"))
+        {
+            database.Open();
+            using var command = database.CreateCommand();
+            command.CommandText = "CREATE TRIGGER fail_delete BEFORE DELETE ON timers BEGIN SELECT RAISE(ABORT, 'private SQL details'); END;";
+            command.ExecuteNonQuery();
+            Assert.False(model.DeleteTimer(a, 7000));
+            Assert.Single(model.ArchivedTimers);
+            Assert.Equal(2, model.History.Count);
+            Assert.DoesNotContain("SQL", model.ErrorMessage);
+            command.CommandText = "DROP TRIGGER fail_delete;";
+            command.ExecuteNonQuery();
+        }
+        Assert.True(model.DeleteTimer(a, 8000));
+        Assert.Empty(model.ArchivedTimers);
+        Assert.Equal(b, Assert.Single(model.Timers).Id);
+        Assert.Same(kept, Assert.Single(model.History));
+        Assert.Equal(6000, model.HistorySnapshotAtMs);
+        Assert.True(model.RefreshHistory(9000));
+        Assert.Equal(b, Assert.Single(model.History).Snapshot.Session.TimerId);
+    }
+
     public void Dispose() => Directory.Delete(directory, recursive: true);
 }

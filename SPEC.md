@@ -126,7 +126,7 @@ Documentation
 FamilyLine
 ```
 
-Timer существует постоянно, пока пользователь вручную не уберёт его из рабочего списка.
+Timer существует до явного permanent Delete (§40); Archive лишь убирает его из рабочего списка.
 
 Timer можно:
 
@@ -135,15 +135,24 @@ Timer можно:
 - выбрать accent color из фиксированной палитры;
 - назначить hotkeys;
 - убрать из активного списка;
-- вернуть в активный список.
+- вернуть в активный список;
+- удалить навсегда через Delete (§40).
 
-Удаление Timer из списка **не удаляет историю**.
+Remove from list **не удаляет историю**.
 
 Технически это Archive/Unarchive.
 
 Timer имеет user-selectable palette color. Один и тот же текущий accent используется
-в Timers, History и Archived timers как небольшой marker рядом с именем.
-Create/Edit показывают реальные swatches фиксированной палитры, без RGB/hex ввода.
+в Timers, History и Archived timers как заметный цветной title/header имени.
+Body остаётся neutral, не окрашивается вся карточка/History row. Имя на цветном
+фоне автоматически получает black или white foreground с наибольшим WCAG
+contrast (не менее 4.5:1). Canonical palette определяет Light/Dark backgrounds
+и contrasting foreground; значения не дублируются между views.
+Палитра содержит 10 отчётливо различимых, насыщенных цветов с разделением hue,
+без близких pastel-вариантов. Все существующие symbolic keys сохраняются;
+изменение rendered values не требует schema/data migration.
+Create/Edit показывают крупные цветные swatches с именами и явным selected item,
+без RGB/hex ввода.
 Новые Timer по умолчанию получают очередной цвет по числу активных Timer;
 существующие Timer при обновлении схемы получают стабильный default `blue`.
 Сохраняется только символический `color_key`, не Brush и не theme-specific hex.
@@ -770,6 +779,7 @@ Start / Pause / Resume / Stop controls
 Configured hotkeys
 Edit
 Remove from list
+Delete (см. §40)
 ```
 
 State-dependent controls:
@@ -813,7 +823,8 @@ Archived Timer:
 - остаётся доступным в History/Statistics;
 - может быть восстановлен.
 
-Archived timers view показывает Total по §3; open Session у archived Timer нет.
+Archived timers view показывает цветной title по §3, Total, Edit, Restore и
+Delete по §40; open Session у archived Timer нет.
 
 Timer с open Session архивировать нельзя.
 
@@ -1407,11 +1418,41 @@ The session was not changed.
 - expiration;
 - automatic retention policies.
 
-Timer removal:
+## Timer deletion
+
+Remove from list остаётся отдельным non-destructive Archive действием:
 
 ```text
 archive
 ```
+
+Permanent Delete доступен только для Stopped / IDLE Timer, включая archived.
+Для Running и Paused кнопка неактивна, а service отклоняет вызов без изменения
+данных. Delete не выполняет автоматический Stop/Pause/Archive — сначала
+пользователь должен явно Stop.
+
+Перед Delete обязательно explicit confirmation:
+
+```text
+Delete "iOS Testing"?
+This will permanently delete the timer and all of its history.
+This action cannot be undone.
+[Cancel] [Delete]
+```
+
+Cancel — default, получает focus; Escape и закрытие dialog отменяют действие.
+Delete визуально destructive и требует отдельного явного подтверждения.
+Delete необратимо удаляет Timer, все его Sessions и связанные Pauses в одной
+SQLite transaction: pauses → sessions → timer → commit. Service повторно
+проверяет отсутствие open Session внутри той же write transaction. Ошибка
+на любом шаге сохраняет все записи и не выдаётся за успешное удаление.
+Cascade/schema rebuild, soft-delete и recycle bin не нужны; user_version остаётся 2.
+
+После commit Timer исчезает из Timers/Archived, его Sessions — из History,
+его derived Total больше не существует; orphan rows не остаются. Другие Timer
+и их History snapshots не меняются. Automatic retention/cleanup по-прежнему запрещены.
+
+## Individual Session deletion (later History editing)
 
 Session deletion:
 
