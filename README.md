@@ -1,9 +1,36 @@
-# GaleWorkTimer — T2.4: deletion and stronger timer colors
+# GaleWorkTimer
 
 .NET 10 / Avalonia 12 desktop executable with the accepted T1 SQLite core
 (`Microsoft.Data.Sqlite`). One production assembly and one xUnit test project.
-Product SSOT: [SPEC.md](SPEC.md); the T2 ticket bounds this stage to basic,
-cross-platform UI. No Windows integration, network code or elapsed-time polling.
+Product SSOT: [SPEC.md](SPEC.md). Current stage: **T2.4**, with permanent
+Stopped-only Timer Delete, stronger colored headers, automatic black/white title
+contrast, cumulative active totals and read-only History. No elapsed-time polling;
+T3 is not implemented.
+
+## Windows 11 x64 preview — T2.4
+
+[Download GaleWorkTimer-T2.4-win-x64.zip](https://github.com/nefirma/GaleWorkTimer/releases/download/t2.4-preview/GaleWorkTimer-T2.4-win-x64.zip)
+or open the [preview release](https://github.com/nefirma/GaleWorkTimer/releases/tag/t2.4-preview).
+
+1. Extract **all files** from the ZIP into one folder.
+2. Run `GaleWorkTimer.exe` from that folder. Do not copy only the executable.
+3. Create a timer and use Start / Pause / Resume / Stop; reopen the application
+   to check persistence.
+4. Test permanent Delete only on a disposable **Stopped** timer: confirming it
+   removes that timer and all its history. Cancel leaves its data intact.
+
+The preview is self-contained: a separate .NET runtime installation is not
+required. There is no installer. No database is bundled; the application creates
+its per-user database at `%LOCALAPPDATA%\NeFirma\GaleWorkTimer\data.db` if absent.
+If you already used T2.3, close it before starting T2.4. T2.4 uses the same
+existing database; schema stays at version 2 and no migration is required.
+Do not delete that database when replacing the application files.
+
+The ZIP contains accepted application source `a66fb0a`; build checkout `1ec90d4`
+adds only the artifact ignore rule. Linux build, all 60 tests, win-x64 publish
+and ZIP content/extraction checks passed. **T2.4 execution on Windows is not yet
+proven**; this preview is for manual testing on Gala's Windows PC. Gala tested
+the previous [T2.3 preview](https://github.com/nefirma/GaleWorkTimer/releases/tag/t2.3-preview), which remains available.
 
 ## Run and use
 
@@ -12,10 +39,12 @@ dotnet run --project src/GaleWorkTimer
 ```
 
 The default **Timers** tab supports Add, Edit, Start, Pause, Resume, Stop and
-Remove from list. Timers are displayed in persisted sort order and show cumulative
-active Total across all sessions, excluding pauses. Running totals are static
-snapshots, updated on startup, Timers navigation, Refresh or timer actions;
-there is no live current-session counter. Archived timers can be restored from
+Remove from list. Timers are displayed in persisted sort order. Every active and
+archived timer shows cumulative active **Total** across all its sessions, excluding
+pauses. Running totals use one shared explicit snapshot per list refresh and
+remain static until startup, Timers navigation, Refresh or a timer action.
+No live current-session elapsed is displayed. Totals retain accumulated hours
+(for example, `126 h 15 min`), not days. Archived timers can be restored from
 the **Archived timers** section. Removing an unfinished timer is refused; Stop
 it first. Archive preserves all history. **Delete** is separate and irreversible:
 only Stopped timers (including archived) can be deleted, after explicit confirmation
@@ -102,8 +131,9 @@ Available operations:
   null chooses the next palette default. Explicit unknown keys are rejected.
 - `GetTimer(timerId)` returns persisted metadata.
 - `GetTimers()` returns all persisted timers, including archived ones, in sort order.
-- `GetTimerTotals(snapshotAtMs)` returns derived active totals for all timers from
-  one batch query; no mutable total is persisted.
+- `GetTimerTotals(snapshotAtMs)` returns derived active totals for all timers,
+  including archived and zero-session timers, using one batch loading query.
+  No mutable total is persisted.
 - `RenameTimer(timerId, name, atMs)`.
 - `EditTimer(timerId, name, colorKey, atMs)` atomically saves a valid name/color.
   `RenameTimer` preserves the current color. `TimerPalette` is the canonical
@@ -200,10 +230,12 @@ failed-write integrity, History projection and explicit immutable snapshots.
 All existing tests remain; the schema-version assertion now expects v2.
 T2.2 tests cover the real v1 migration, field preservation, color persistence/Edit,
 invalid keys, default cycling and independent color/status History projections.
-T2.3 tests cover cumulative totals and immutable running snapshots. T2.4 tests
-cover stopped/archived deletion, active-state rejection, dependent-row rollback,
-ViewModel history removal and black/white palette contrast in both themes.
+T2.3 tests cover cumulative sessions, multiple pauses, independent overlapping
+timers, fixed running snapshots, paused totals, restart and the Timer row projection.
+T2.4 tests cover stopped/archived deletion, active-state rejection, dependent-row
+rollback, ViewModel history removal and black/white palette contrast in both themes.
 GUI launch and interaction need
 a real desktop smoke; automated ViewModel tests do not prove pixel layout or
-manual interaction. Windows integrations/packaging and abrupt power loss are
-outside this stage's validation.
+manual interaction. Static Windows preview packaging is validated on Linux;
+Windows runtime behavior, later platform integrations and abrupt power loss are
+not proven by these checks.
