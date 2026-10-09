@@ -5,3 +5,4 @@ TestResults/
 *.db-shm
 *.db-wal
 token-optimizer/
+artifacts/
