@@ -388,5 +388,65 @@ public sealed class MainWindowViewModelTests : IDisposable
         Assert.Equal(metadata, service.GetTimer(id));
     }
 
+    [Fact]
+    public void Selected_total_sums_snapshot_active_work_once_and_formats_hours_without_days()
+    {
+        using var service = new TimerService(DatabasePath);
+        var a = service.CreateTimer("A", 0).Id;
+        var b = service.CreateTimer("B", 0).Id;
+        var other = service.CreateTimer("Not selected", 0).Id;
+        service.Start(a, 0);
+        service.Pause(a, 60_000);
+        service.Resume(a, 120_000);
+        service.Stop(a, 180_000); // 2 active minutes.
+        service.Start(b, 0); // Overlapping Timer contributes independently.
+        service.Start(other, 0);
+        var model = new MainWindowViewModel(service, 210_000);
+        var before = model.Timers;
+        model.CalculateSelectedTotal([a, b, a, -1]);
+        Assert.Equal("00:05", model.SelectedTotalText); // 2 + 3.5 minutes, truncate only after summing.
+        Assert.Same(before, model.Timers);
+        Assert.Equal(210_000, model.TimersSnapshotAtMs);
+        model.CalculateSelectedTotal([]);
+        Assert.Equal("00:00", model.SelectedTotalText);
+        model.CalculateSelectedTotal([b]);
+        Assert.Equal("00:03", model.SelectedTotalText);
+        model.ClearSelectedTotal();
+        Assert.Equal("", model.SelectedTotalText);
+        model.CalculateSelectedTotal([a, b]);
+        Assert.True(model.RefreshTimers(300_000));
+        Assert.Equal("", model.SelectedTotalText);
+        model.CalculateSelectedTotal([a, b]);
+        Assert.Equal("00:07", model.SelectedTotalText);
+        Assert.True(model.ArchiveTimer(a, 300_000));
+        Assert.Equal("", model.SelectedTotalText);
+        model.CalculateSelectedTotal([a, b]);
+        Assert.Equal("00:05", model.SelectedTotalText); // Archived Timer no longer belongs to active selection.
+        Assert.True(model.PauseTimer(b, 7_575 * 60_000L));
+        model.CalculateSelectedTotal([b]);
+        Assert.Equal("126:15", model.SelectedTotalText);
+        Assert.True(model.RefreshTimers(8_000 * 60_000L));
+        model.CalculateSelectedTotal([b]);
+        Assert.Equal("126:15", model.SelectedTotalText); // Paused work does not grow.
+    }
+
+    [Fact]
+    public void Selected_total_adds_subminute_work_before_rounding_and_survives_read_only_operations()
+    {
+        using var service = new TimerService(DatabasePath);
+        var a = service.CreateTimer("A", 0).Id;
+        var b = service.CreateTimer("B", 0).Id;
+        service.Start(a, 0);
+        service.Stop(a, 59_000);
+        service.Start(b, 0);
+        service.Stop(b, 1_000);
+        var model = new MainWindowViewModel(service, 60_000);
+        model.CalculateSelectedTotal([a, b]);
+        Assert.Equal("00:01", model.SelectedTotalText);
+        Assert.True(model.RefreshHistory(60_000));
+        Assert.Equal("00:01", model.SelectedTotalText);
+        Assert.Equal(2, model.History.Count);
+    }
+
     public void Dispose() => Directory.Delete(directory, recursive: true);
 }

@@ -4,6 +4,7 @@
 (`Microsoft.Data.Sqlite`). One production assembly and one xUnit test project.
 Product SSOT: [SPEC.md](SPEC.md). Current source stage: **T2.5**, adding newest-first
 Timer lists and one-click Copy Name to the accepted T2.4 functionality.
+T2.5 also includes a selected-Timer **Общее время** calculator in `HH:MM`.
 No elapsed-time polling; T3 is not implemented.
 
 ## Для Гали: Windows 11 x64 — T2.5 Preview
@@ -23,9 +24,9 @@ T2.5 использует ту же базу, schema version 2, без мигр�
 при замене программы и не запускай две версии одновременно. База не включена
 в ZIP; при первом запуске без существующей базы создаётся новая.
 
-Код приложения: `102c699`. Linux build и 64/64 tests прошли; точные данные
-Windows ZIP и SHA-256 приведены в release notes. **Windows runtime T2.5:
-NOT_YET_PROVEN** — запуск и Copy → Paste нужно проверить на Windows.
+Исходный commit обновлённой T2.5, результаты проверок и SHA-256 ZIP приведены
+в release notes. **Windows runtime обновлённой T2.5: NOT_YET_PROVEN** — запуск,
+Copy → Paste и калькулятор нужно проверить на Windows.
 Предыдущие [T2.4](https://github.com/nefirma/GaleWorkTimer/releases/tag/t2.4-preview)
 и [T2.3](https://github.com/nefirma/GaleWorkTimer/releases/tag/t2.3-preview) остаются доступными.
 
@@ -57,6 +58,13 @@ name**; accessible name: **Copy timer name**. Clipboard errors use the existing
 error message area without changing data or refreshing snapshots. The official
 Microsoft SVG geometry is rendered natively, with no SVG/icon package dependency;
 its [MIT notice](src/GaleWorkTimer/Assets/Icons/LICENSE.txt) is included in build/publish output.
+
+Select active Timer checkboxes and press **Общее время** to sum their cumulative
+Total snapshots as `HH:MM` (for example, `126:15`). Pauses are excluded and
+overlapping timers accumulate independently. The calculator adds full durations
+before truncating to whole minutes. Empty selection gives `00:00`. It does not
+refresh or tick; selection changes or a Timer-list refresh clear the old result.
+Restore an archived Timer before including it. Selection/results are not persisted.
 
 Create and Edit offer ten large named palette swatches. Saturated timer colors
 appear as prominent title backgrounds in Timers, History and Archived timers,
@@ -242,6 +250,8 @@ T2.4 tests cover stopped/archived deletion, active-state rejection, dependent-ro
 rollback, ViewModel history removal and black/white palette contrast in both themes.
 T2.5 tests cover creation-time/ID ordering for active/archived timers, exact-name
 clipboard writes and synchronous/asynchronous clipboard failures without refreshing data.
+Calculator tests cover selected-only sums, duplicate IDs, pause/overlap semantics,
+subminute carry, hours above 24 and stale-result invalidation.
 GUI launch and interaction need
 a real desktop smoke; automated ViewModel tests do not prove pixel layout or
 manual interaction. Static Windows preview packaging is validated on Linux;

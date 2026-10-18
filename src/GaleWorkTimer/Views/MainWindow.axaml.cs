@@ -44,6 +44,14 @@ public sealed partial class MainWindow : Window
     private void RefreshHistory(object? sender, RoutedEventArgs e) => model.RefreshHistory(NowMs());
     private void RefreshTimers(object? sender, RoutedEventArgs e) => model.RefreshTimers(NowMs());
 
+    private void CalculateSelectedTotal(object? sender, RoutedEventArgs e) =>
+        model.CalculateSelectedTotal(ActiveTimers.SelectedItems?.Cast<TimerRow>().Select(timer => timer.Id) ?? []);
+
+    private void TimerSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (e.Source == ActiveTimers) model.ClearSelectedTotal();
+    }
+
     private async void CopyTimerName(object? sender, RoutedEventArgs e) =>
         await model.CopyTimerNameAsync(Row(sender), text =>
             (TopLevel.GetTopLevel(this)?.Clipboard ?? throw new InvalidOperationException("Clipboard unavailable."))

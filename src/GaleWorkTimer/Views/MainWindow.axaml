@@ -9,6 +9,10 @@
         WindowDecorations="Full" ExtendClientAreaToDecorationsHint="False"
         CanMinimize="True" CanMaximize="True" CanResize="True">
   <Window.Styles>
+    <Style Selector="ListBox#ActiveTimers ListBoxItem">
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
     <Style Selector="Button">
       <Setter Property="Margin" Value="0,0,8,8" />
     </Style>
@@ -40,17 +44,27 @@
                       ItemsSource="{x:Static domain:TimerPalette.Colors}" />
             <Button Content="+ Add timer" Click="AddTimer" />
             <Button Content="Refresh" Click="RefreshTimers" />
+            <Button Content="Общее время" Click="CalculateSelectedTotal" />
+            <TextBlock Text="{Binding SelectedTotalText}" FontSize="20" FontWeight="SemiBold"
+                       VerticalAlignment="Center" Margin="4,0,0,8"
+                       AutomationProperties.Name="Общее время выбранных таймеров" />
           </WrapPanel>
           <ScrollViewer>
             <StackPanel Spacing="16">
-              <ItemsControl ItemsSource="{Binding Timers}">
-                <ItemsControl.ItemTemplate>
+              <ListBox x:Name="ActiveTimers" ItemsSource="{Binding Timers}" SelectionMode="Multiple,Toggle"
+                       SelectionChanged="TimerSelectionChanged"
+                       Padding="0" BorderThickness="0" Background="Transparent"
+                       ScrollViewer.VerticalScrollBarVisibility="Disabled" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="vm:TimerRow">
                     <Border BorderThickness="0,0,0,1" BorderBrush="Gray" Padding="0,12">
                       <StackPanel Spacing="10">
-                        <Grid ColumnDefinitions="*,Auto">
-                          <TextBlock Classes="timerTitle" Text="{Binding Name}" />
-                          <Button Grid.Column="1" Classes="copyName" Click="CopyTimerName">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                          <CheckBox IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}, Mode=TwoWay}"
+                                    VerticalAlignment="Center" Margin="0,0,8,0" ToolTip.Tip="Выбрать для общего времени"
+                                    AutomationProperties.Name="{Binding Name, StringFormat='Выбрать таймер {0}'}" />
+                          <TextBlock Grid.Column="1" Classes="timerTitle" Text="{Binding Name}" />
+                          <Button Grid.Column="2" Classes="copyName" Click="CopyTimerName">
                             <PathIcon Width="20" Height="20" Data="{x:Static views:CopyIcon.Geometry}" />
                           </Button>
                         </Grid>
@@ -75,8 +89,8 @@
                       </StackPanel>
                     </Border>
                   </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
+                </ListBox.ItemTemplate>
+              </ListBox>
               <Expander Header="Archived timers" HorizontalAlignment="Stretch">
                 <ItemsControl ItemsSource="{Binding ArchivedTimers}">
                   <ItemsControl.ItemTemplate>

@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using GaleWorkTimer.Domain;
 using GaleWorkTimer.Services;
 
@@ -28,6 +29,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string SnapshotText => HistorySnapshotAtMs is long atMs
         ? $"Snapshot: {HistoryRow.FormatTimestamp(atMs)} — refresh to update." : "";
     public string ErrorMessage { get; private set; } = "";
+    public string SelectedTotalText { get; private set; } = "";
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public MainWindowViewModel(TimerService service, long snapshotAtMs)
@@ -60,6 +62,21 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             SetError("Could not copy the timer name. Please try again.");
             return false;
         }
+    }
+
+    public void CalculateSelectedTotal(IEnumerable<long> selectedIds)
+    {
+        var ids = selectedIds.ToHashSet();
+        var minutes = Timers.Where(timer => ids.Contains(timer.Id)).Sum(timer => timer.Total.Ticks)
+            / TimeSpan.TicksPerMinute;
+        SelectedTotalText = string.Create(CultureInfo.InvariantCulture, $"{minutes / 60:00}:{minutes % 60:00}");
+        Changed(nameof(SelectedTotalText));
+    }
+
+    public void ClearSelectedTotal()
+    {
+        SelectedTotalText = "";
+        Changed(nameof(SelectedTotalText));
     }
 
     public bool RefreshTimers(long snapshotAtMs)
@@ -153,6 +170,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         Timers = timers;
         ArchivedTimers = archived;
         TimersSnapshotAtMs = snapshotAtMs;
+        ClearSelectedTotal();
         Changed(nameof(Timers));
         Changed(nameof(ArchivedTimers));
         var byId = all.ToDictionary(timer => timer.Id);
