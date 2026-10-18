@@ -2,10 +2,10 @@
 
 .NET 10 / Avalonia 12 desktop executable with the accepted T1 SQLite core
 (`Microsoft.Data.Sqlite`). One production assembly and one xUnit test project.
-Product SSOT: [SPEC.md](SPEC.md). Current stage: **T2.4**, with permanent
-Stopped-only Timer Delete, stronger colored headers, automatic black/white title
-contrast, cumulative active totals and read-only History. No elapsed-time polling;
-T3 is not implemented.
+Product SSOT: [SPEC.md](SPEC.md). Current source stage: **T2.5**, adding newest-first
+Timer lists and one-click Copy Name to the accepted T2.4 functionality.
+No elapsed-time polling; T3 is not implemented. The downloadable preview below
+is still T2.4 and does not include T2.5 changes.
 
 ## Windows 11 x64 preview — T2.4
 
@@ -39,7 +39,9 @@ dotnet run --project src/GaleWorkTimer
 ```
 
 The default **Timers** tab supports Add, Edit, Start, Pause, Resume, Stop and
-Remove from list. Timers are displayed in persisted sort order. Every active and
+Remove from list. Active and archived timers are displayed newest first by
+persisted creation timestamp descending, then ID descending; existing records
+are not reordered in storage. Every active and
 archived timer shows cumulative active **Total** across all its sessions, excluding
 pauses. Running totals use one shared explicit snapshot per list refresh and
 remain static until startup, Timers navigation, Refresh or a timer action.
@@ -51,6 +53,13 @@ only Stopped timers (including archived) can be deleted, after explicit confirma
 that all history will be removed. Cancel is the safe default. Running/Paused
 timers must be stopped manually first. One SQLite transaction deletes dependent
 pauses, sessions and the timer; any failure rolls back all records.
+
+A compact Fluent Copy icon beside each active/archived Timer title copies its
+exact name to the platform clipboard, without status or Total. Tooltip: **Copy
+name**; accessible name: **Copy timer name**. Clipboard errors use the existing
+error message area without changing data or refreshing snapshots. The official
+Microsoft SVG geometry is rendered natively, with no SVG/icon package dependency;
+its [MIT notice](src/GaleWorkTimer/Assets/Icons/LICENSE.txt) is included in build/publish output.
 
 Create and Edit offer ten large named palette swatches. Saturated timer colors
 appear as prominent title backgrounds in Timers, History and Archived timers,
@@ -234,6 +243,8 @@ T2.3 tests cover cumulative sessions, multiple pauses, independent overlapping
 timers, fixed running snapshots, paused totals, restart and the Timer row projection.
 T2.4 tests cover stopped/archived deletion, active-state rejection, dependent-row
 rollback, ViewModel history removal and black/white palette contrast in both themes.
+T2.5 tests cover creation-time/ID ordering for active/archived timers, exact-name
+clipboard writes and synchronous/asynchronous clipboard failures without refreshing data.
 GUI launch and interaction need
 a real desktop smoke; automated ViewModel tests do not prove pixel layout or
 manual interaction. Static Windows preview packaging is validated on Linux;

@@ -36,12 +36,12 @@ public sealed class MainWindowViewModelTests : IDisposable
         service.Pause(paused, 2_000);
 
         var model = new MainWindowViewModel(service, 2_000);
-        Assert.Equal(new[] { idle, running, paused }, model.Timers.Select(t => t.Id));
-        Assert.Equal(new[] { TimerState.Idle, TimerState.Running, TimerState.Paused }, model.Timers.Select(t => t.State));
-        Assert.Equal(new[] { true, false, false }, model.Timers.Select(t => t.CanStart));
+        Assert.Equal(new[] { paused, running, idle }, model.Timers.Select(t => t.Id));
+        Assert.Equal(new[] { TimerState.Paused, TimerState.Running, TimerState.Idle }, model.Timers.Select(t => t.State));
+        Assert.Equal(new[] { false, false, true }, model.Timers.Select(t => t.CanStart));
         Assert.Equal(new[] { false, true, false }, model.Timers.Select(t => t.CanPause));
-        Assert.Equal(new[] { false, false, true }, model.Timers.Select(t => t.CanResume));
-        Assert.Equal(new[] { false, true, true }, model.Timers.Select(t => t.CanStop));
+        Assert.Equal(new[] { true, false, false }, model.Timers.Select(t => t.CanResume));
+        Assert.Equal(new[] { true, true, false }, model.Timers.Select(t => t.CanStop));
     }
 
     [Fact]
@@ -54,8 +54,8 @@ public sealed class MainWindowViewModelTests : IDisposable
             Assert.True(model.CreateTimer("  A  ", 0));
             Assert.True(model.CreateTimer("B", 0));
             Assert.True(model.CreateTimer("C", 0));
-            (a, b, c) = (model.Timers[0].Id, model.Timers[1].Id, model.Timers[2].Id);
-            Assert.Equal("A", model.Timers[0].Name);
+            (a, b, c) = (model.Timers[2].Id, model.Timers[1].Id, model.Timers[0].Id);
+            Assert.Equal("A", model.Timers[2].Name);
             Assert.True(model.StartTimer(a, 1_000));
             Assert.True(model.StartTimer(b, 1_000));
             Assert.True(model.StartTimer(c, 1_000));
@@ -71,15 +71,15 @@ public sealed class MainWindowViewModelTests : IDisposable
         using (var reopened = new TimerService(DatabasePath))
         {
             var model = new MainWindowViewModel(reopened, 4_000);
-            Assert.Equal(new[] { a, c }, model.Timers.Select(t => t.Id));
-            Assert.Equal("Renamed A", model.Timers[0].Name);
-            Assert.Equal(TimerState.Paused, model.Timers[0].State);
-            Assert.Equal(TimerState.Running, model.Timers[1].State);
+            Assert.Equal(new[] { c, a }, model.Timers.Select(t => t.Id));
+            Assert.Equal("Renamed A", model.Timers[1].Name);
+            Assert.Equal(TimerState.Paused, model.Timers[1].State);
+            Assert.Equal(TimerState.Running, model.Timers[0].State);
             Assert.Equal(b, Assert.Single(model.ArchivedTimers).Id);
             Assert.Single(reopened.GetTimerSessions(b));
             Assert.True(model.RestoreTimer(b, 5_000));
             Assert.Empty(model.ArchivedTimers);
-            Assert.Equal(new[] { a, b, c }, model.Timers.Select(t => t.Id));
+            Assert.Equal(new[] { c, b, a }, model.Timers.Select(t => t.Id));
             Assert.True(model.ResumeTimer(a, 6_000));
             Assert.Equal(sessionA, Assert.Single(reopened.GetTimerSessions(a)).Id);
             Assert.True(model.StopTimer(a, 7_000));
@@ -89,9 +89,9 @@ public sealed class MainWindowViewModelTests : IDisposable
 
         using var restored = new TimerService(DatabasePath);
         var restoredModel = new MainWindowViewModel(restored, 8_000);
-        Assert.Equal(new[] { a, b, c }, restoredModel.Timers.Select(t => t.Id));
+        Assert.Equal(new[] { c, b, a }, restoredModel.Timers.Select(t => t.Id));
         Assert.All(restoredModel.Timers, row => Assert.Equal(TimerState.Idle, row.State));
-        Assert.Equal("Renamed A", restoredModel.Timers[0].Name);
+        Assert.Equal("Renamed A", restoredModel.Timers[2].Name);
         Assert.Empty(restoredModel.ArchivedTimers);
     }
 
@@ -210,7 +210,7 @@ public sealed class MainWindowViewModelTests : IDisposable
         Assert.True(model.CreateTimer("A", 0, "green"));
         Assert.True(model.CreateTimer("B", 0, "red"));
         Assert.True(model.CreateTimer("C", 0, "blue"));
-        var (a, b, c) = (model.Timers[0].Id, model.Timers[1].Id, model.Timers[2].Id);
+        var (a, b, c) = (model.Timers[2].Id, model.Timers[1].Id, model.Timers[0].Id);
         Assert.True(model.StartTimer(a, 1000));
         Assert.True(model.PauseTimer(a, 2000));
         Assert.True(model.StartTimer(b, 1000));
@@ -327,6 +327,65 @@ public sealed class MainWindowViewModelTests : IDisposable
         Assert.Equal(6000, model.HistorySnapshotAtMs);
         Assert.True(model.RefreshHistory(9000));
         Assert.Equal(b, Assert.Single(model.History).Snapshot.Session.TimerId);
+    }
+
+    [Fact]
+    public void Active_and_archived_lists_use_creation_descending_then_id_without_rewriting_metadata()
+    {
+        using var service = new TimerService(DatabasePath);
+        var a = service.CreateTimer("A", 10_000).Id;
+        var b = service.CreateTimer("B", 20_000).Id;
+        var c = service.CreateTimer("C", 30_000).Id;
+        var model = new MainWindowViewModel(service, 30_000);
+        Assert.Equal(new[] { c, b, a }, model.Timers.Select(t => t.Id));
+        // Insert a lower timestamp after a higher one: reversing IDs alone is incorrect.
+        var earlier = service.CreateTimer("Earlier", 15_000).Id;
+        var tie = service.CreateTimer("Same time as C", 30_000).Id;
+        var metadata = service.GetTimers().ToArray();
+        Assert.True(model.RefreshTimers(30_000));
+        Assert.Equal(new[] { tie, c, b, earlier, a }, model.Timers.Select(t => t.Id));
+        Assert.Equal(metadata, service.GetTimers().ToArray());
+        foreach (var id in new[] { a, b, c, earlier, tie })
+            Assert.True(model.ArchiveTimer(id, 40_000));
+        Assert.Empty(model.Timers);
+        Assert.Equal(new[] { tie, c, b, earlier, a }, model.ArchivedTimers.Select(t => t.Id));
+        using var reopened = new TimerService(DatabasePath);
+        var restored = new MainWindowViewModel(reopened, 50_000);
+        Assert.Equal(new[] { tie, c, b, earlier, a }, restored.ArchivedTimers.Select(t => t.Id));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task Copy_passes_only_exact_name_and_handles_sync_or_async_failure_without_refresh(int failure)
+    {
+        using var service = new TimerService(DatabasePath);
+        var id = service.CreateTimer("  FamilyLine Android QA — Галя  ", 0).Id;
+        service.Start(id, 1000);
+        var model = new MainWindowViewModel(service, 5000);
+        Assert.True(model.RefreshHistory(5000));
+        var row = Assert.Single(model.Timers);
+        var history = Assert.Single(model.History);
+        var metadata = service.GetTimer(id);
+        string? received = null;
+        var writes = 0;
+        Task Write(string text)
+        {
+            received = text;
+            writes++;
+            if (failure == 1) throw new InvalidOperationException("private clipboard details");
+            return failure == 2 ? Task.FromException(new InvalidOperationException("private clipboard details"))
+                : Task.CompletedTask;
+        }
+        Assert.Equal(failure == 0, await model.CopyTimerNameAsync(row, Write));
+        Assert.Equal("FamilyLine Android QA — Галя", received);
+        Assert.Equal(1, writes);
+        Assert.Equal(failure == 0 ? "" : "Could not copy the timer name. Please try again.", model.ErrorMessage);
+        Assert.Same(row, Assert.Single(model.Timers));
+        Assert.Same(history, Assert.Single(model.History));
+        Assert.Equal(5000, model.TimersSnapshotAtMs);
+        Assert.Equal(metadata, service.GetTimer(id));
     }
 
     public void Dispose() => Directory.Delete(directory, recursive: true);

@@ -767,12 +767,26 @@ RUNNING → Running → green
 status marker/text, а не ко всей строке. Palette и status brushes адаптируются
 к Light/Dark theme. Definitions не дублируются между views.
 
-Main view содержит список активных Timer.
+Main view содержит список активных Timer, newest first: `created_at_ms DESC`,
+затем `id DESC` при равных timestamps. Archived использует тот же порядок.
+Это display projection, без изменения существующих Timer records или schema;
+persisted `sort_order` не определяет видимый порядок. History по-прежнему
+сортирует индивидуальные Sessions newest first независимо от Timer-list order.
+
+Каждый active/archived Timer title предоставляет one-click Copy Name справа
+от имени. Кнопка компактная, с официальным Microsoft Fluent System Icons
+`ic_fluent_copy_20_regular` (около 20px), tooltip `Copy name` и accessible name
+`Copy timer name`. Цветной title и его readable foreground сохраняются;
+иконка использует theme foreground своей кнопки.
+Copy Name помещает точное Timer Name в OS clipboard через Avalonia API, без
+status, Total, кавычек или добавленных пробелов. Clipboard failure показывается
+через существующий UI error mechanism, не приводит к crash. Copy не меняет
+данные, status или duration snapshots; polling/toast/timer subsystem не нужен.
 
 Для каждого:
 
 ```text
-Name
+Name + Copy Name
 State
 Total (см. §3 и §7)
 Start / Pause / Resume / Stop controls

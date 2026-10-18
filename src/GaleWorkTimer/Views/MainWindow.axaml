@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:GaleWorkTimer.ViewModels"
         xmlns:domain="using:GaleWorkTimer.Domain"
+        xmlns:views="using:GaleWorkTimer.Views"
         x:Class="GaleWorkTimer.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="GaleWorkTimer" Width="1020" Height="660" MinWidth="760" MinHeight="420"
@@ -10,6 +11,13 @@
   <Window.Styles>
     <Style Selector="Button">
       <Setter Property="Margin" Value="0,0,8,8" />
+    </Style>
+    <Style Selector="Button.copyName">
+      <Setter Property="Padding" Value="6" />
+      <Setter Property="Margin" Value="4,0,0,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="ToolTip.Tip" Value="Copy name" />
+      <Setter Property="AutomationProperties.Name" Value="Copy timer name" />
     </Style>
   </Window.Styles>
   <DockPanel Margin="20">
@@ -40,7 +48,12 @@
                   <DataTemplate x:DataType="vm:TimerRow">
                     <Border BorderThickness="0,0,0,1" BorderBrush="Gray" Padding="0,12">
                       <StackPanel Spacing="10">
-                        <TextBlock Classes="timerTitle" Text="{Binding Name}" />
+                        <Grid ColumnDefinitions="*,Auto">
+                          <TextBlock Classes="timerTitle" Text="{Binding Name}" />
+                          <Button Grid.Column="1" Classes="copyName" Click="CopyTimerName">
+                            <PathIcon Width="20" Height="20" Data="{x:Static views:CopyIcon.Geometry}" />
+                          </Button>
+                        </Grid>
                         <Grid ColumnDefinitions="*,Auto">
                           <TextBlock VerticalAlignment="Center"><Run Text="Total: " /><Run Text="{Binding TotalText}" /></TextBlock>
                           <TextBlock Grid.Column="1" Classes="status"
@@ -69,7 +82,12 @@
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:TimerRow">
                       <StackPanel Spacing="10" Margin="0,8">
-                        <TextBlock Classes="timerTitle" Text="{Binding Name}" />
+                        <Grid ColumnDefinitions="*,Auto">
+                          <TextBlock Classes="timerTitle" Text="{Binding Name}" />
+                          <Button Grid.Column="1" Classes="copyName" Click="CopyTimerName">
+                            <PathIcon Width="20" Height="20" Data="{x:Static views:CopyIcon.Geometry}" />
+                          </Button>
+                        </Grid>
                         <TextBlock><Run Text="Total: " /><Run Text="{Binding TotalText}" /></TextBlock>
                         <WrapPanel>
                           <Button Content="Edit" Click="EditTimer" />

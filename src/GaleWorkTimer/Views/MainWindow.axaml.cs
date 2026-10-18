@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Input.Platform;
 using Avalonia.Layout;
 using GaleWorkTimer.ViewModels;
 using GaleWorkTimer.Domain;
@@ -42,6 +43,11 @@ public sealed partial class MainWindow : Window
     private void RestoreTimer(object? sender, RoutedEventArgs e) => model.RestoreTimer(Row(sender).Id, NowMs());
     private void RefreshHistory(object? sender, RoutedEventArgs e) => model.RefreshHistory(NowMs());
     private void RefreshTimers(object? sender, RoutedEventArgs e) => model.RefreshTimers(NowMs());
+
+    private async void CopyTimerName(object? sender, RoutedEventArgs e) =>
+        await model.CopyTimerNameAsync(Row(sender), text =>
+            (TopLevel.GetTopLevel(this)?.Clipboard ?? throw new InvalidOperationException("Clipboard unavailable."))
+            .SetTextAsync(text));
 
     private void Navigate(object? sender, SelectionChangedEventArgs e)
     {

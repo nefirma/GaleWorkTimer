@@ -47,6 +47,21 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public bool ResumeTimer(long id, long atMs) => Execute(() => service.Resume(id, atMs), atMs);
     public bool StopTimer(long id, long atMs) => Execute(() => service.Stop(id, atMs), atMs);
 
+    public async Task<bool> CopyTimerNameAsync(TimerRow timer, Func<string, Task> writeText)
+    {
+        try
+        {
+            await writeText(timer.Name);
+            SetError("");
+            return true;
+        }
+        catch (Exception)
+        {
+            SetError("Could not copy the timer name. Please try again.");
+            return false;
+        }
+    }
+
     public bool RefreshTimers(long snapshotAtMs)
     {
         try
@@ -129,7 +144,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private void LoadTimers(long snapshotAtMs)
     {
-        var all = service.GetTimers();
+        var all = service.GetTimers().OrderByDescending(t => t.CreatedAtMs).ThenByDescending(t => t.Id).ToArray();
         var totals = service.GetTimerTotals(snapshotAtMs);
         var timers = all.Where(t => !t.IsArchived)
             .Select(t => new TimerRow(t.Id, t.Name, service.GetTimerState(t.Id), t.ColorKey, totals[t.Id])).ToArray();
