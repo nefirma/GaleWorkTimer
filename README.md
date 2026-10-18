@@ -4,33 +4,30 @@
 (`Microsoft.Data.Sqlite`). One production assembly and one xUnit test project.
 Product SSOT: [SPEC.md](SPEC.md). Current source stage: **T2.5**, adding newest-first
 Timer lists and one-click Copy Name to the accepted T2.4 functionality.
-No elapsed-time polling; T3 is not implemented. The downloadable preview below
-is still T2.4 and does not include T2.5 changes.
+No elapsed-time polling; T3 is not implemented.
 
-## Windows 11 x64 preview — T2.4
+## Для Гали: Windows 11 x64 — T2.5 Preview
 
-[Download GaleWorkTimer-T2.4-win-x64.zip](https://github.com/nefirma/GaleWorkTimer/releases/download/t2.4-preview/GaleWorkTimer-T2.4-win-x64.zip)
-or open the [preview release](https://github.com/nefirma/GaleWorkTimer/releases/tag/t2.4-preview).
+[Скачать GaleWorkTimer-T2.5-win-x64.zip](https://github.com/nefirma/GaleWorkTimer/releases/download/t2.5-preview/GaleWorkTimer-T2.5-win-x64.zip)
+· [Страница release](https://github.com/nefirma/GaleWorkTimer/releases/tag/t2.5-preview)
+· **[Инструкция для пользователя на русском](USER_GUIDE_RU.md)** (также внутри ZIP).
 
-1. Extract **all files** from the ZIP into one folder.
-2. Run `GaleWorkTimer.exe` from that folder. Do not copy only the executable.
-3. Create a timer and use Start / Pause / Resume / Stop; reopen the application
-   to check persistence.
-4. Test permanent Delete only on a disposable **Stopped** timer: confirming it
-   removes that timer and all its history. Cancel leaves its data intact.
+1. Закрой предыдущую версию через **Exit** или крестик окна.
+2. Скачай ZIP и распакуй **все файлы** в отдельную папку T2.5.
+3. Запусти `GaleWorkTimer.exe` из этой папки. Отдельно устанавливать .NET не нужно.
+4. Новые созданные Timer теперь появляются сверху; кнопка с двумя перекрывающимися
+   прямоугольниками справа от имени копирует только имя. Подсказка — **Copy name**.
 
-The preview is self-contained: a separate .NET runtime installation is not
-required. There is no installer. No database is bundled; the application creates
-its per-user database at `%LOCALAPPDATA%\NeFirma\GaleWorkTimer\data.db` if absent.
-If you already used T2.3, close it before starting T2.4. T2.4 uses the same
-existing database; schema stays at version 2 and no migration is required.
-Do not delete that database when replacing the application files.
+Данные T2.3/T2.4 остаются в `%LOCALAPPDATA%\NeFirma\GaleWorkTimer\data.db`.
+T2.5 использует ту же базу, schema version 2, без миграции. **Не удаляй базу**
+при замене программы и не запускай две версии одновременно. База не включена
+в ZIP; при первом запуске без существующей базы создаётся новая.
 
-The ZIP contains accepted application source `a66fb0a`; build checkout `1ec90d4`
-adds only the artifact ignore rule. Linux build, all 60 tests, win-x64 publish
-and ZIP content/extraction checks passed. **T2.4 execution on Windows is not yet
-proven**; this preview is for manual testing on Gala's Windows PC. Gala tested
-the previous [T2.3 preview](https://github.com/nefirma/GaleWorkTimer/releases/tag/t2.3-preview), which remains available.
+Код приложения: `102c699`. Linux build и 64/64 tests прошли; точные данные
+Windows ZIP и SHA-256 приведены в release notes. **Windows runtime T2.5:
+NOT_YET_PROVEN** — запуск и Copy → Paste нужно проверить на Windows.
+Предыдущие [T2.4](https://github.com/nefirma/GaleWorkTimer/releases/tag/t2.4-preview)
+и [T2.3](https://github.com/nefirma/GaleWorkTimer/releases/tag/t2.3-preview) остаются доступными.
 
 ## Run and use
 
