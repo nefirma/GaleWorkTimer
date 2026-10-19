@@ -1,0 +1,52 @@
+{
+  "allowed_action_categories": [
+    "READ_ONLY_LOCAL",
+    "WORKSPACE_MUTATION",
+    "VCS_MUTATION"
+  ],
+  "done_definition": {
+    "extra": [],
+    "requires_evidence_for_all_ac": true,
+    "requires_merge": true,
+    "requires_reconcile": true
+  },
+  "forbidden_action_categories": [
+    "EXTERNAL_SIDE_EFFECT",
+    "DESTRUCTIVE_OR_IRREVERSIBLE_ACTION",
+    "PRODUCTION_OR_CUSTOMER_IMPACTING_ACTION",
+    "SECRET_READING_ACTION"
+  ],
+  "forbidden_paths": [
+    "src/**",
+    "SPEC.md",
+    ".opencode/**",
+    ".github/**",
+    "docs/context5.md",
+    "docs/teamlead_KB.md",
+    "docs/knowledge_base.md"
+  ],
+  "goal": "",
+  "human_gates": [],
+  "ir_version": 1,
+  "model_budget": {
+    "escalation_allowed_to": "T3_REASONING",
+    "max_attempts": 2,
+    "tier": "T1_CHEAP"
+  },
+  "priority": "P1",
+  "project": "default",
+  "risk": "High",
+  "scope_paths": [
+    "packaging/**",
+    "tests/GaleWorkTimer.Packaging.Tests/**",
+    "GaleWorkTimer.sln",
+    "README.md",
+    "USER_GUIDE_RU.md",
+    "docs/wiki/packaging.md",
+    "docs/tickets/T-2_001_stable_windows_install_update.md"
+  ],
+  "task_class": "scoped_feature",
+  "ticket_id": "T-2",
+  "title": "HANDOFF TICKET: \u0421\u0442\u0430\u0431\u0438\u043b\u044c\u043d\u0430\u044f Windows-\u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043a\u0430 \u0441 \u0431\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u044b\u043c \u043e\u0442\u043a\u0430\u0442\u043e\u043c",
+  "validation_contract": []
+}
