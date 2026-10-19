@@ -1,0 +1,7 @@
+# AXLE project configuration (see docs/AXLE-MIDI-HARNESS-BOOTSTRAP.md)
+
+project:
+  name: "galeworktimer"
+  path: "/home/phil/Projects/galeworktimer"
+  repo_name: "Phil/galeworktimer"
+  gitea_remote: "origin"

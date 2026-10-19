@@ -6,3 +6,6 @@ TestResults/
 *.db-wal
 token-optimizer/
 artifacts/
+.axle-midi/
+worktrees/
+config/gitea-ticket-migration/*.local.json
