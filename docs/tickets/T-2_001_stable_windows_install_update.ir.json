@@ -21,7 +21,6 @@
     "SPEC.md",
     ".opencode/**",
     ".github/**",
-    "docs/context5.md",
     "docs/teamlead_KB.md",
     "docs/knowledge_base.md"
   ],
@@ -43,6 +42,7 @@
     "README.md",
     "USER_GUIDE_RU.md",
     "docs/wiki/packaging.md",
+    "docs/context5.md",
     "docs/tickets/T-2_001_stable_windows_install_update.md"
   ],
   "task_class": "scoped_feature",

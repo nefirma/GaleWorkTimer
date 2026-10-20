@@ -44,12 +44,13 @@
 - EVIDENCE, 2026-10-20: /home/phil/.dotnet/dotnet --version вернул 10.0.401; PowerShell на PATH отсутствует.
 - EVIDENCE: SPEC §42 уже рекомендует постоянный каталог, но текущая инструкция требует отдельную папку. Исправляется инструкция, не логика таймеров.
 - NOT_YET_PROVEN: исполнение Windows-кандидата, Windows file locking, ярлыки и восстановление на реальной Windows.
-- docs/wiki/INDEX.md отсутствует; локальный graphify-out/graph.json отсутствует. Не создавать вымышленную ссылку на существующую wiki.
+- EVIDENCE, 2026-10-20: onboarding baseline добавляет docs/wiki/INDEX.md. Локальный graphify-out/graph.json отсутствует; onboarding не создаёт граф и не объявляет его существующим.
 - Старое письмо о равенстве main/origin/main не является текущим SHA-доказательством; preflight проверяет актуальное состояние.
 
 ## Authorization and Scope
-- Scope Paths: ["packaging/**", "tests/GaleWorkTimer.Packaging.Tests/**", "GaleWorkTimer.sln", "README.md", "USER_GUIDE_RU.md", "docs/wiki/packaging.md", "docs/tickets/T-2_001_stable_windows_install_update.md"]
-- Forbidden Paths: ["src/**", "SPEC.md", ".opencode/**", ".github/**", "docs/context5.md", "docs/teamlead_KB.md", "docs/knowledge_base.md"]
+- Scope Paths: ["packaging/**", "tests/GaleWorkTimer.Packaging.Tests/**", "GaleWorkTimer.sln", "README.md", "USER_GUIDE_RU.md", "docs/wiki/packaging.md", "docs/context5.md", "docs/tickets/T-2_001_stable_windows_install_update.md"]
+- Forbidden Paths: ["src/**", "SPEC.md", ".opencode/**", ".github/**", "docs/teamlead_KB.md", "docs/knowledge_base.md"]
+- Owner amendment (Phil, 2026-10-20): docs/context5.md разрешён только для одной обязательной append-only записи Senior по T-2 между <!-- CONTEXT5:SENIOR_LOG_START --> и <!-- CONTEXT5:SENIOR_LOG_END --> перед final terminal JSON. Нельзя менять markers, прежние записи или LEAD-зону. Прочие ограничения scope и delivery сохраняются.
 - Allowed Action Categories: ["READ_ONLY_LOCAL", "WORKSPACE_MUTATION", "VCS_MUTATION"]
 - Authorized: .NET packaging helper, отдельные packaging-тесты, воспроизводимая сборка кандидата, пользовательская инструкция и компактная wiki-страница.
 - Git outcome: AXLE_NORMAL_FLOW. Доставка только через ticket branch и PR. Merge и workflow transitions принадлежат AXLE.
