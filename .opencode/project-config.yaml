@@ -5,3 +5,9 @@ project:
   path: "/home/phil/Projects/galeworktimer"
   repo_name: "Phil/galeworktimer"
   gitea_remote: "origin"
+
+kb:
+  teamlead: docs/AXLE_PROJECT_KB.md
+  senior: docs/AXLE_PROJECT_KB.md
+  devops: docs/AXLE_PROJECT_KB.md
+  gitea: docs/AXLE_PROJECT_KB.md
