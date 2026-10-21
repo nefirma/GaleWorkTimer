@@ -106,60 +106,67 @@ public sealed class InstallManagerTests : IDisposable
         AssertDataSentinels(dataBefore);
     }
 
-    [Fact]
-    public async Task Abrupt_process_termination_before_commit_recovers_A_through_stable_entry()
+    [Theory]
+    [MemberData(nameof(UpdateCrashCases))]
+    public async Task Abrupt_update_interruption_at_each_persistent_boundary_recovers_through_stable_entry(
+        string boundaryName, int stagedWriteNumber, string expectedVersion, string expectedPayload, bool committed)
     {
         CrashChildIfRequested();
         var packageA = CreatePackage("1.0.0", "payload-A"u8.ToArray());
         var packageB = CreatePackage("2.0.0", "payload-B"u8.ToArray());
+        var packageC = CreatePackage("3.0.0", "payload-C"u8.ToArray());
         var dataBefore = CaptureDataSentinels();
         var baseline = new InstallManager(installRoot).InstallPackage(packageA, launcher);
+        Assert.Equal(InstallOutcome.Installed, baseline.Outcome);
+        var updated = new InstallManager(installRoot).InstallPackage(packageB, launcher);
+        Assert.Equal(InstallOutcome.Updated, updated.Outcome);
         var stableEntryBytes = File.ReadAllBytes(baseline.StableEntryPath);
 
-        await RunAbruptInstallChild(nameof(Abrupt_process_termination_before_commit_recovers_A_through_stable_entry),
-            nameof(InstallBoundary.AfterStagedPayloadFileWrite), packageB);
+        await RunAbruptInstallChild(nameof(Abrupt_update_interruption_at_each_persistent_boundary_recovers_through_stable_entry),
+            boundaryName, packageC, stagedWriteNumber);
 
-        Assert.NotEmpty(Directory.GetDirectories(installRoot, ".staging-*", SearchOption.TopDirectoryOnly));
         var started = new List<ProcessStartInfo>();
         var result = new InstallManager(installRoot, checkpoint: null, startProcess: started.Add)
             .LaunchStableEntry([]);
+        var expectedOutcome = committed ? InstallOutcome.Updated : InstallOutcome.RecoveredPrevious;
 
-        Assert.Equal(InstallOutcome.RecoveredPrevious, result.Outcome);
-        Assert.Equal("1.0.0", result.InstalledVersion);
-        Assert.Contains("прерван", result.FailureReason!, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(expectedOutcome, result.Outcome);
+        Assert.Equal(expectedVersion, result.InstalledVersion);
+        Assert.Equal(committed, result.FailureReason is null);
+        if (!committed)
+        {
+            Assert.Contains("UPDATE_INTERRUPTED", result.FailureReason!, StringComparison.Ordinal);
+            Assert.DoesNotContain(directory, result.FailureReason!, StringComparison.OrdinalIgnoreCase);
+        }
         Assert.Equal(baseline.StableEntryPath, result.StableEntryPath);
         Assert.Equal(stableEntryBytes, File.ReadAllBytes(result.StableEntryPath));
-        Assert.Equal(Path.Combine(installRoot, "payload-0", "GaleWorkTimer.exe"), started.Single().FileName);
-        Assert.Equal("payload-A"u8.ToArray(), File.ReadAllBytes(started.Single().FileName));
+        Assert.Equal(Path.Combine(installRoot, expectedVersion == "2.0.0" ? "payload-1" : "payload-0", "GaleWorkTimer.exe"),
+            started.Single().FileName);
+        Assert.Equal(System.Text.Encoding.UTF8.GetBytes(expectedPayload), File.ReadAllBytes(started.Single().FileName));
         Assert.Empty(Directory.GetDirectories(installRoot, ".staging-*", SearchOption.TopDirectoryOnly));
         AssertDataSentinels(dataBefore);
     }
 
-    [Fact]
-    public async Task Abrupt_process_termination_after_commit_starts_B_through_the_same_stable_entry()
+    public static IEnumerable<object[]> UpdateCrashCases()
     {
-        CrashChildIfRequested();
-        var packageA = CreatePackage("1.0.0", "payload-A"u8.ToArray());
-        var packageB = CreatePackage("2.0.0", "payload-B"u8.ToArray());
-        var dataBefore = CaptureDataSentinels();
-        var baseline = new InstallManager(installRoot).InstallPackage(packageA, launcher);
-        var stableEntryBytes = File.ReadAllBytes(baseline.StableEntryPath);
+        foreach (var boundary in new[]
+                 {
+                     InstallBoundary.AfterTransactionTempWrite,
+                     InstallBoundary.AfterTransactionJournalRename,
+                     InstallBoundary.AfterPayloadManifestWrite,
+                     InstallBoundary.BeforeInactiveSlotDelete,
+                     InstallBoundary.AfterInactiveSlotDelete,
+                     InstallBoundary.AfterCandidateSlotRename,
+                     InstallBoundary.AfterStateTempWrite
+                 })
+            yield return [boundary.ToString(), 0, "2.0.0", "payload-B", false];
 
-        await RunAbruptInstallChild(nameof(Abrupt_process_termination_after_commit_starts_B_through_the_same_stable_entry),
-            nameof(InstallBoundary.AfterStateRename), packageB);
+        for (var writeNumber = 1; writeNumber <= 4; writeNumber++)
+            yield return [InstallBoundary.AfterStagedPayloadFileWrite.ToString(), writeNumber,
+                "2.0.0", "payload-B", false];
 
-        var started = new List<ProcessStartInfo>();
-        var result = new InstallManager(installRoot, checkpoint: null, startProcess: started.Add)
-            .LaunchStableEntry([]);
-
-        Assert.Equal(InstallOutcome.Updated, result.Outcome);
-        Assert.Equal("2.0.0", result.InstalledVersion);
-        Assert.Null(result.FailureReason);
-        Assert.Equal(baseline.StableEntryPath, result.StableEntryPath);
-        Assert.Equal(stableEntryBytes, File.ReadAllBytes(result.StableEntryPath));
-        Assert.Equal(Path.Combine(installRoot, "payload-1", "GaleWorkTimer.exe"), started.Single().FileName);
-        Assert.Equal("payload-B"u8.ToArray(), File.ReadAllBytes(started.Single().FileName));
-        AssertDataSentinels(dataBefore);
+        yield return [InstallBoundary.AfterStateRename.ToString(), 0, "3.0.0", "payload-C", true];
+        yield return [InstallBoundary.AfterTransactionDelete.ToString(), 0, "3.0.0", "payload-C", true];
     }
 
     [Fact]
@@ -286,49 +293,65 @@ public sealed class InstallManagerTests : IDisposable
     }
 
     [Theory]
-    [InlineData(nameof(InstallBoundary.AfterTransactionTempWrite), 0, false)]
-    [InlineData(nameof(InstallBoundary.AfterTransactionJournalRename), 0, false)]
-    [InlineData(nameof(InstallBoundary.AfterStagedPayloadFileWrite), 1, false)]
-    [InlineData(nameof(InstallBoundary.AfterStagedPayloadFileWrite), 2, false)]
-    [InlineData(nameof(InstallBoundary.AfterStagedPayloadFileWrite), 3, false)]
-    [InlineData(nameof(InstallBoundary.AfterStagedPayloadFileWrite), 4, false)]
-    [InlineData(nameof(InstallBoundary.AfterPayloadManifestWrite), 0, false)]
-    [InlineData(nameof(InstallBoundary.AfterCandidateSlotRename), 0, false)]
-    [InlineData(nameof(InstallBoundary.AfterStateTempWrite), 0, false)]
-    [InlineData(nameof(InstallBoundary.AfterStateRename), 0, true)]
-    [InlineData(nameof(InstallBoundary.AfterTransactionDelete), 0, true)]
-    public void Initial_install_recovery_does_not_invent_a_previous_version(
-        string boundaryName, int stagedWriteNumber, bool commitCompleted)
+    [MemberData(nameof(InitialCrashCases))]
+    public async Task Abrupt_initial_install_interruption_recovers_through_stable_entry_and_allows_retry(
+        string boundaryName, int stagedWriteNumber, bool committed, bool stableEntryExpected)
     {
-        var interruptedAt = Enum.Parse<InstallBoundary>(boundaryName);
-        var package = CreatePackage("1.0.0", "partial"u8.ToArray());
+        CrashChildIfRequested();
+        var package = CreatePackage("1.0.0", "payload-A"u8.ToArray());
         var dataBefore = CaptureDataSentinels();
-        var stagedWrites = 0;
-        var interrupted = new InstallManager(installRoot, boundary =>
-        {
-            if (boundary == interruptedAt &&
-                (boundary != InstallBoundary.AfterStagedPayloadFileWrite || ++stagedWrites == stagedWriteNumber))
-                throw new SimulatedInterruptionException();
-        });
-        Assert.Throws<SimulatedInterruptionException>(() => interrupted.InstallPackage(package, launcher));
 
-        var recovered = new InstallManager(installRoot).Recover();
-        if (commitCompleted)
+        await RunAbruptInstallChild(nameof(Abrupt_initial_install_interruption_recovers_through_stable_entry_and_allows_retry),
+            boundaryName, package, stagedWriteNumber);
+
+        Assert.Equal(stableEntryExpected, File.Exists(Path.Combine(installRoot, "GaleWorkTimer.exe")));
+        var started = new List<ProcessStartInfo>();
+        var launch = new InstallManager(installRoot, checkpoint: null, startProcess: started.Add)
+            .LaunchStableEntry([]);
+
+        if (committed)
         {
-            Assert.Equal(InstallOutcome.Installed, recovered.Outcome);
-            Assert.Equal("1.0.0", recovered.InstalledVersion);
-            Assert.Equal("partial"u8.ToArray(), File.ReadAllBytes(recovered.ExecutablePath!));
+            Assert.Equal(InstallOutcome.Installed, launch.Outcome);
+            Assert.Equal("1.0.0", launch.InstalledVersion);
+            Assert.Null(launch.FailureReason);
+            Assert.Single(started);
+            Assert.Equal("payload-A"u8.ToArray(), File.ReadAllBytes(started.Single().FileName));
         }
         else
         {
-            Assert.Equal(InstallOutcome.Rejected, recovered.Outcome);
-            Assert.Null(recovered.InstalledVersion);
-            Assert.Null(recovered.ExecutablePath);
+            Assert.Equal(InstallOutcome.Rejected, launch.Outcome);
+            Assert.Null(launch.InstalledVersion);
+            Assert.Null(launch.ExecutablePath);
+            Assert.Empty(started);
+            Assert.Contains("INITIAL_INTERRUPTED", launch.FailureReason!, StringComparison.Ordinal);
+            Assert.DoesNotContain(directory, launch.FailureReason!, StringComparison.OrdinalIgnoreCase);
             Assert.False(File.Exists(Path.Combine(installRoot, ".install-state.json")));
             Assert.Empty(Directory.GetDirectories(installRoot, "payload-*", SearchOption.TopDirectoryOnly));
-            Assert.Contains("прер", recovered.FailureReason!, StringComparison.OrdinalIgnoreCase);
         }
+
+        Assert.Empty(Directory.GetDirectories(installRoot, ".staging-*", SearchOption.TopDirectoryOnly));
+        var retry = new InstallManager(installRoot).InstallPackage(package, launcher);
+        Assert.Equal(committed ? InstallOutcome.Updated : InstallOutcome.Installed, retry.Outcome);
+        Assert.Equal("1.0.0", retry.InstalledVersion);
+        Assert.Equal("payload-A"u8.ToArray(), File.ReadAllBytes(retry.ExecutablePath!));
+        Assert.Equal(1, Directory.GetDirectories(installRoot, "payload-*", SearchOption.TopDirectoryOnly).Length);
+        Assert.Equal("launcher"u8.ToArray(), File.ReadAllBytes(retry.StableEntryPath));
         AssertDataSentinels(dataBefore);
+    }
+
+    public static IEnumerable<object[]> InitialCrashCases()
+    {
+        yield return [InstallBoundary.AfterTransactionTempWrite.ToString(), 0, false, false];
+        yield return [InstallBoundary.AfterTransactionJournalRename.ToString(), 0, false, false];
+        yield return [InstallBoundary.AfterStableEntryTempWrite.ToString(), 0, false, false];
+        yield return [InstallBoundary.AfterStableEntryRename.ToString(), 0, false, true];
+        for (var writeNumber = 1; writeNumber <= 4; writeNumber++)
+            yield return [InstallBoundary.AfterStagedPayloadFileWrite.ToString(), writeNumber, false, true];
+        yield return [InstallBoundary.AfterPayloadManifestWrite.ToString(), 0, false, true];
+        yield return [InstallBoundary.AfterCandidateSlotRename.ToString(), 0, false, true];
+        yield return [InstallBoundary.AfterStateTempWrite.ToString(), 0, false, true];
+        yield return [InstallBoundary.AfterStateRename.ToString(), 0, true, true];
+        yield return [InstallBoundary.AfterTransactionDelete.ToString(), 0, true, true];
     }
 
     [Theory]
@@ -529,6 +552,7 @@ public sealed class InstallManagerTests : IDisposable
     private const string CrashPackagePathKey = "GWT_PACKAGING_CRASH_PACKAGE_PATH";
     private const string CrashLauncherPathKey = "GWT_PACKAGING_CRASH_LAUNCHER_PATH";
     private const string CrashBoundaryKey = "GWT_PACKAGING_CRASH_BOUNDARY";
+    private const string CrashWriteNumberKey = "GWT_PACKAGING_CRASH_WRITE_NUMBER";
     private const string CrashMarkerPathKey = "GWT_PACKAGING_CRASH_MARKER_PATH";
 
     private void CrashChildIfRequested()
@@ -537,12 +561,18 @@ public sealed class InstallManagerTests : IDisposable
             return;
 
         var boundary = Enum.Parse<InstallBoundary>(Environment.GetEnvironmentVariable(CrashBoundaryKey)!);
+        var writeNumber = int.Parse(Environment.GetEnvironmentVariable(CrashWriteNumberKey)!);
         var markerPath = Environment.GetEnvironmentVariable(CrashMarkerPathKey)!;
+        var stagedWrites = 0;
         var manager = new InstallManager(Environment.GetEnvironmentVariable(CrashInstallRootKey)!, point =>
         {
             if (point != boundary)
                 return;
-            File.WriteAllText(markerPath, boundary.ToString());
+            if (boundary == InstallBoundary.AfterStagedPayloadFileWrite && ++stagedWrites != writeNumber)
+                return;
+            File.WriteAllText(markerPath, boundary == InstallBoundary.AfterStagedPayloadFileWrite
+                ? $"{boundary}:{stagedWrites}"
+                : boundary.ToString());
             Environment.FailFast("GWT_TEST_ABRUPT_EXIT");
         }, applicationRunning: () => false);
         manager.InstallPackage(Environment.GetEnvironmentVariable(CrashPackagePathKey)!,
@@ -550,7 +580,8 @@ public sealed class InstallManagerTests : IDisposable
         throw new InvalidOperationException("The configured abrupt termination boundary was not reached.");
     }
 
-    private async Task RunAbruptInstallChild(string testName, string boundary, string packagePath)
+    private async Task RunAbruptInstallChild(string testName, string boundary, string packagePath,
+        int stagedWriteNumber = 0)
     {
         var assemblyDirectory = new DirectoryInfo(AppContext.BaseDirectory);
         var projectDirectory = assemblyDirectory.Parent?.Parent?.Parent
@@ -577,6 +608,7 @@ public sealed class InstallManagerTests : IDisposable
         startInfo.Environment[CrashPackagePathKey] = packagePath;
         startInfo.Environment[CrashLauncherPathKey] = launcher;
         startInfo.Environment[CrashBoundaryKey] = boundary;
+        startInfo.Environment[CrashWriteNumberKey] = stagedWriteNumber.ToString();
         startInfo.Environment[CrashMarkerPathKey] = markerPath;
 
         using var process = Process.Start(startInfo)
@@ -594,7 +626,8 @@ public sealed class InstallManagerTests : IDisposable
 
         Assert.NotEqual(0, process.ExitCode);
         Assert.True(File.Exists(markerPath), "The child did not reach the configured persistent boundary.");
-        Assert.Equal(boundary, File.ReadAllText(markerPath));
+        var expectedMarker = stagedWriteNumber == 0 ? boundary : $"{boundary}:{stagedWriteNumber}";
+        Assert.Equal(expectedMarker, File.ReadAllText(markerPath));
         Assert.Contains("GWT_TEST_ABRUPT_EXIT", outputTask.Result + errorTask.Result, StringComparison.Ordinal);
     }
 
