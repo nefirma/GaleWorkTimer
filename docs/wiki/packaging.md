@@ -10,28 +10,28 @@
 
 | Artifact | SHA-256 | Local path |
 | --- | --- | --- |
-| `GaleWorkTimer.Setup.exe` | `8ac25d31f700d7e5acf454a0298792c816004ccf582e722ab3565cb750045978` | `artifacts/windows-candidate/2.6.0/GaleWorkTimer.Setup.exe` |
-| `GaleWorkTimer-win-x64.zip` | `492e68cb7ce57a946979b18e2d85784e14dfb46ecc9df6bcc6e4c37a3f196b7b` | `artifacts/windows-candidate/2.6.0/GaleWorkTimer-win-x64.zip` |
+| `GaleWorkTimer.Setup.exe` | `58d205d9139e6456b9d9ba2745989bfd28d61cc8042538395579735f9210bf5e` | `artifacts/windows-candidate/2.6.0-rework/GaleWorkTimer.Setup.exe` |
+| `GaleWorkTimer-win-x64.zip` | `fdcf53af3c0e008ef586b1fa7d63e6215d90bbb2abae065c412e775985af525f` | `artifacts/windows-candidate/2.6.0-rework/GaleWorkTimer-win-x64.zip` |
 
 The hashes identify these local files. They do not prove publisher identity.
 
 ## Build and verification
 
-**EVIDENCE:** Build command:
+**EVIDENCE:** Current rework build command:
 
 ```bash
-rtk test env DOTNET=/home/phil/.dotnet/dotnet bash packaging/build-windows-candidate.sh 2.6.0
+rtk test env DOTNET=/home/phil/.dotnet/dotnet bash packaging/build-windows-candidate.sh 2.6.0 2.6.0-rework
 ```
 
-**EVIDENCE:** Exit code `0`. The script published the app and setup for `win-x64`, created the ZIP, printed both SHA-256 values, and verified the ZIP manifest and contents.
+**EVIDENCE:** Exit code `0`. The script published the app and setup for `win-x64`, created the 228-file ZIP, printed both SHA-256 values, and verified the ZIP manifest and contents.
 
-**EVIDENCE:** Rebuild command:
+**EVIDENCE:** Reproducibility rebuild command:
 
 ```bash
-rtk test env DOTNET=/home/phil/.dotnet/dotnet bash packaging/build-windows-candidate.sh 2.6.0 2.6.0-verify
+rtk test env DOTNET=/home/phil/.dotnet/dotnet bash packaging/build-windows-candidate.sh 2.6.0 2.6.0-rework-verify
 ```
 
-**EVIDENCE:** The second build exited `0`. Both artifact SHA-256 values matched the first build.
+**EVIDENCE:** The second build exited `0`. Both artifact SHA-256 values matched the rework build.
 
 **EVIDENCE:** Solution build command:
 
@@ -39,7 +39,7 @@ rtk test env DOTNET=/home/phil/.dotnet/dotnet bash packaging/build-windows-candi
 rtk test -v /home/phil/.dotnet/dotnet build GaleWorkTimer.sln --configuration Release --verbosity minimal
 ```
 
-**EVIDENCE:** Exit code `0`; `0` warnings and `0` errors.
+**EVIDENCE:** Exit code `0`; `1` warning and `0` errors in compact output. Warning detail is `NOT_YET_PROVEN` because the compact result did not include its message.
 
 **EVIDENCE:** Solution test command:
 
@@ -47,7 +47,7 @@ rtk test -v /home/phil/.dotnet/dotnet build GaleWorkTimer.sln --configuration Re
 rtk test -v /home/phil/.dotnet/dotnet test GaleWorkTimer.sln --configuration Release --verbosity minimal
 ```
 
-**EVIDENCE:** Exit code `0`; `41` packaging tests and `66` existing application tests passed. No tests failed or were skipped.
+**EVIDENCE:** Exit code `0`; `44` packaging tests and `66` application tests passed. No tests failed or were skipped.
 
 ## Output source and derivation
 
@@ -67,12 +67,36 @@ rtk test -v /home/phil/.dotnet/dotnet test GaleWorkTimer.sln --configuration Rel
 | C1 | `packaging/build-windows-candidate.sh`; win-x64 self-contained publish; 228-file verified ZIP; stable setup entry and install instructions in `USER_GUIDE_RU.md` | No application source change; no administrator or separately installed runtime requirement is added | `PASS` on CachyOS static build only |
 | C2 | `Install_and_update_select_verified_payload_at_one_stable_entry_without_touching_data` asserts the stable entry path, A and B executable bytes, two bounded slots, idempotent repeat, and unchanged database/WAL/SHM sentinels | Same package repeat does not create another payload directory or change selected bytes | `PASS` in packaging tests |
 | C3 | `Interrupted_update_recovers_previous_verified_payload_and_reports_a_safe_reason` and `Occupied_inactive_slot_rolls_back_without_touching_active_payload_or_data` | Interrupted B is not reported as updated; A remains selected and the reason contains no private test path | `PASS` in packaging tests |
-| C4 | `Recovery_selects_last_committed_payload_at_each_persistent_boundary`, `Interruption_after_each_staged_payload_file_write_recovers_previous_payload`, `Interrupted_initial_stable_entry_write_leaves_no_launchable_partial_payload`, and `Initial_install_recovery_does_not_invent_a_previous_version` | Before state commit recovery selects the prior complete payload; after the atomic state commit recovery selects the new complete payload; initial failure never reports rollback or launches partial payload | `PASS` in packaging tests |
-| C5 | `Unsafe_archive_paths_are_rejected_without_changing_installed_payload`, `Symlink_archive_entry_is_rejected_before_switching`, `Invalid_manifest_file_list_and_integrity_are_rejected`, `Concurrent_updater_is_rejected_while_first_transaction_holds_the_install_lock`, `Occupied_inactive_slot_rolls_back_without_touching_active_payload_or_data`, and `Running_application_rejects_update_before_any_payload_or_data_mutation` | Traversal, absolute/drive paths, Windows reserved names, invalid characters, link entries, missing files, wrong SHA-256, simulated occupied slot, concurrent updater, injected running-process check | `PASS` in filesystem tests; Windows locking and process detection remain unproven |
+| C4 | `Recovery_selects_last_committed_payload_at_each_persistent_boundary`, `Interruption_after_each_staged_payload_file_write_recovers_previous_payload`, `Interrupted_initial_stable_entry_write_leaves_no_launchable_partial_payload`, `Initial_install_recovery_does_not_invent_a_previous_version`, `Abrupt_process_termination_before_commit_recovers_A_through_stable_entry`, and `Abrupt_process_termination_after_commit_starts_B_through_the_same_stable_entry` | Separate child test processes call `Environment.FailFast` at persistent boundaries, bypassing `finally`; the next `LaunchStableEntry` selects A and reports interruption before commit, or selects B after state commit. Both branches assert unchanged stable-entry bytes and selected payload bytes. Initial failure never reports rollback or launches partial payload. | `PASS` in packaging tests |
+| C5 | `AssertDataSentinels` compares the exact sentinel filename set and bytes (`data.db`, `data.db-wal`, `data.db-shm`) in success/repeat, pre-transaction failures, uncommitted journal failure, rollback, recovery, initial failure, traversal/link/manifest rejection, running-app rejection, and concurrent updater cases | Includes same-version/different-payload rejection; package B cannot be reported as installed when A remains selected. Traversal, absolute/drive paths, Windows reserved names, invalid characters, link entries, missing files, wrong SHA-256, occupied slot, concurrent updater, and process recovery leave every sentinel unchanged. | `PASS` in filesystem tests; Windows locking and process detection remain unproven |
 | C6 | `README.md`, `USER_GUIDE_RU.md`, and this page describe candidate commands, first portable-to-stable transition, normal update, close-before-update, stable path, rollback/recovery, and copying the safe reason | Current public T2.5 portable release is distinguished from the unpublished candidate | `PASS` by direct document inspection |
-| C7 | Release solution build (`0` warnings, `0` errors); solution tests (`41` packaging + `66` app, exit `0`); win-x64 app/setup publish; package verification and candidate SHA-256 | Candidate build and Linux file simulation are not evidence of Windows runtime behavior | `PASS` for local candidate checks; W1–W4 remain `NOT_YET_PROVEN` |
+| C7 | Release solution build (exit `0`, `1` warning, `0` errors); solution tests (`44` packaging + `66` app, exit `0`); current rework win-x64 app/setup publish; repeat build produced matching SHA-256 values; ZIP verification | Candidate build and Linux file simulation are not evidence of Windows runtime behavior | `PASS` for local candidate checks; W1–W4 remain `NOT_YET_PROVEN` |
 
 The A/B byte assertions and state-commit boundary fixtures are the anti-collapse proof: selecting A before commit and B after commit produce different observed executable bytes. Tests also include successful, degraded initial-install, and negative package fixtures.
+
+## Rework execution evidence
+
+**EVIDENCE:** Rework used branch `ticket/T-2-001_stable_windows_install_update`, starting from reviewed head `b865786ff048370a73a5a2fa2c652fb1f4bcd947` and authority base `2854ea15a29ea5cbb1e2206b7e2a01a7ef784779`. The source rework is limited to `InstallManager.cs` and `InstallManagerTests.cs`; this page records the updated validation evidence.
+
+**EVIDENCE:** Release solution build command:
+
+```bash
+rtk test -v /home/phil/.dotnet/dotnet build GaleWorkTimer.sln --configuration Release --verbosity minimal
+```
+
+**EVIDENCE:** Exit code `0`; `0` errors and `1` warning in compact output. Warning detail is `NOT_YET_PROVEN` because the wrapper output did not include its message.
+
+**EVIDENCE:** Release solution test command:
+
+```bash
+rtk test -v /home/phil/.dotnet/dotnet test GaleWorkTimer.sln --configuration Release --verbosity minimal
+```
+
+**EVIDENCE:** Exit code `0`; `44` packaging tests and `66` application tests passed; `0` failed and `0` skipped. The abrupt-termination tests launch a separate filtered test process and verify its forced termination marker before invoking the shared startup method.
+
+**EVIDENCE:** Rework candidate build and repeat build both exited `0`. Setup SHA-256 was `58d205d9139e6456b9d9ba2745989bfd28d61cc8042538395579735f9210bf5e`; ZIP SHA-256 was `fdcf53af3c0e008ef586b1fa7d63e6215d90bbb2abae065c412e775985af525f`. The repeat build produced both same hashes and verified the 228-file manifest.
+
+**NOT_YET_PROVEN:** This Linux evidence does not establish Windows process detection, file locking, shortcut behavior, Windows paths, physical power-loss durability, or human acceptance. W1–W4 remain `NOT_YET_PROVEN`.
 
 ## Human Windows validation
 
@@ -83,6 +107,6 @@ The A/B byte assertions and state-commit boundary fixtures are the anti-collapse
 | W3: controlled failure and recovery | `NOT_YET_PROVEN` | Galia uses a disposable Windows user profile/install-root and confirms the previous payload and copied reason. |
 | W4: Windows locking, Cyrillic/spaced paths, and data preservation | `NOT_YET_PROVEN` | Galia confirms these cases on Windows. |
 
-No release, publication, or Windows acceptance is claimed. The source snapshot is bound by the final worker-result `source_digest`; the AXLE authority base is `2854ea15a29ea5cbb1e2206b7e2a01a7ef784779`.
+No release, publication, or Windows acceptance is claimed. The validated worktree snapshot is bound by the final worker-result `source_revision` and complete `changed_files` manifest; the AXLE authority base is `2854ea15a29ea5cbb1e2206b7e2a01a7ef784779`.
 
 **NOT_YET_PROVEN:** Sudden power-loss recovery and parent-directory durability after file/directory renames. Tests simulate process interruption; they do not prove filesystem behavior after power loss.

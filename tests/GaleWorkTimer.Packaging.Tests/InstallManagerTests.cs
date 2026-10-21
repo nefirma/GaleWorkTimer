@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.IO.Compression;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using GaleWorkTimer.Packaging;
@@ -30,7 +32,7 @@ public sealed class InstallManagerTests : IDisposable
     {
         var packageA = CreatePackage("1.0.0", "payload-A"u8.ToArray());
         var packageB = CreatePackage("2.0.0", "payload-B"u8.ToArray());
-        var dataBefore = Directory.GetFiles(dataRoot).ToDictionary(path => Path.GetFileName(path)!, File.ReadAllBytes);
+        var dataBefore = CaptureDataSentinels();
         var manager = new InstallManager(installRoot);
 
         var installed = manager.InstallPackage(packageA, launcher);
@@ -51,7 +53,113 @@ public sealed class InstallManagerTests : IDisposable
         Assert.Equal(InstallOutcome.Updated, repeated.Outcome);
         Assert.Equal("payload-B"u8.ToArray(), File.ReadAllBytes(repeated.ExecutablePath!));
         Assert.Equal(2, Directory.GetDirectories(installRoot, "payload-*", SearchOption.TopDirectoryOnly).Length);
-        Assert.Equal(dataBefore, Directory.GetFiles(dataRoot).ToDictionary(path => Path.GetFileName(path)!, File.ReadAllBytes));
+        AssertDataSentinels(dataBefore);
+    }
+
+    [Theory]
+    [InlineData(false, "INSTALL_IO")]
+    [InlineData(true, "INSTALL_ACCESS")]
+    public void Pre_transaction_failure_rejects_update_and_preserves_installed_payload_and_data(
+        bool unauthorized, string expectedReason)
+    {
+        var packageA = CreatePackage("1.0.0", "payload-A"u8.ToArray());
+        var baseline = new InstallManager(installRoot).InstallPackage(packageA, launcher);
+        var packageB = CreatePackage("1.0.0", "payload-B"u8.ToArray(), packageFileName: "candidate-same-version.zip");
+        var dataBefore = CaptureDataSentinels();
+        var failing = new InstallManager(installRoot, checkpoint: null, applicationRunning: () =>
+            throw (unauthorized ? new UnauthorizedAccessException() : new IOException()));
+
+        var result = failing.InstallPackage(packageB, launcher);
+
+        Assert.Equal(InstallOutcome.Rejected, result.Outcome);
+        Assert.Contains(expectedReason, result.FailureReason!, StringComparison.Ordinal);
+        Assert.Null(result.InstalledVersion);
+        Assert.False(File.Exists(Path.Combine(installRoot, ".update-transaction.json")));
+        var installed = new InstallManager(installRoot).Recover();
+        Assert.Equal("1.0.0", installed.InstalledVersion);
+        Assert.Equal("payload-A"u8.ToArray(), File.ReadAllBytes(installed.ExecutablePath!));
+        Assert.Equal(baseline.StableEntryPath, result.StableEntryPath);
+        AssertDataSentinels(dataBefore);
+    }
+
+    [Fact]
+    public void Failure_before_transaction_journal_rename_is_rejected_not_rolled_back()
+    {
+        var packageA = CreatePackage("1.0.0", "payload-A"u8.ToArray());
+        var baseline = new InstallManager(installRoot).InstallPackage(packageA, launcher);
+        var packageB = CreatePackage("2.0.0", "payload-B"u8.ToArray());
+        var dataBefore = CaptureDataSentinels();
+        var failing = new InstallManager(installRoot, boundary =>
+        {
+            if (boundary == InstallBoundary.AfterTransactionTempWrite)
+                throw new IOException("simulated failure before journal rename");
+        });
+
+        var result = failing.InstallPackage(packageB, launcher);
+
+        Assert.Equal(InstallOutcome.Rejected, result.Outcome);
+        Assert.Contains("INSTALL_IO", result.FailureReason!, StringComparison.Ordinal);
+        Assert.Equal("payload-A"u8.ToArray(), File.ReadAllBytes(Path.Combine(installRoot, "payload-0", "GaleWorkTimer.exe")));
+        Assert.Equal(baseline.StableEntryPath, result.StableEntryPath);
+        Assert.False(File.Exists(Path.Combine(installRoot, ".update-transaction.json")));
+        Assert.False(File.Exists(Path.Combine(installRoot, ".update-transaction.json.tmp")));
+        AssertDataSentinels(dataBefore);
+    }
+
+    [Fact]
+    public async Task Abrupt_process_termination_before_commit_recovers_A_through_stable_entry()
+    {
+        CrashChildIfRequested();
+        var packageA = CreatePackage("1.0.0", "payload-A"u8.ToArray());
+        var packageB = CreatePackage("2.0.0", "payload-B"u8.ToArray());
+        var dataBefore = CaptureDataSentinels();
+        var baseline = new InstallManager(installRoot).InstallPackage(packageA, launcher);
+        var stableEntryBytes = File.ReadAllBytes(baseline.StableEntryPath);
+
+        await RunAbruptInstallChild(nameof(Abrupt_process_termination_before_commit_recovers_A_through_stable_entry),
+            nameof(InstallBoundary.AfterStagedPayloadFileWrite), packageB);
+
+        Assert.NotEmpty(Directory.GetDirectories(installRoot, ".staging-*", SearchOption.TopDirectoryOnly));
+        var started = new List<ProcessStartInfo>();
+        var result = new InstallManager(installRoot, checkpoint: null, startProcess: started.Add)
+            .LaunchStableEntry([]);
+
+        Assert.Equal(InstallOutcome.RecoveredPrevious, result.Outcome);
+        Assert.Equal("1.0.0", result.InstalledVersion);
+        Assert.Contains("прерван", result.FailureReason!, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(baseline.StableEntryPath, result.StableEntryPath);
+        Assert.Equal(stableEntryBytes, File.ReadAllBytes(result.StableEntryPath));
+        Assert.Equal(Path.Combine(installRoot, "payload-0", "GaleWorkTimer.exe"), started.Single().FileName);
+        Assert.Equal("payload-A"u8.ToArray(), File.ReadAllBytes(started.Single().FileName));
+        Assert.Empty(Directory.GetDirectories(installRoot, ".staging-*", SearchOption.TopDirectoryOnly));
+        AssertDataSentinels(dataBefore);
+    }
+
+    [Fact]
+    public async Task Abrupt_process_termination_after_commit_starts_B_through_the_same_stable_entry()
+    {
+        CrashChildIfRequested();
+        var packageA = CreatePackage("1.0.0", "payload-A"u8.ToArray());
+        var packageB = CreatePackage("2.0.0", "payload-B"u8.ToArray());
+        var dataBefore = CaptureDataSentinels();
+        var baseline = new InstallManager(installRoot).InstallPackage(packageA, launcher);
+        var stableEntryBytes = File.ReadAllBytes(baseline.StableEntryPath);
+
+        await RunAbruptInstallChild(nameof(Abrupt_process_termination_after_commit_starts_B_through_the_same_stable_entry),
+            nameof(InstallBoundary.AfterStateRename), packageB);
+
+        var started = new List<ProcessStartInfo>();
+        var result = new InstallManager(installRoot, checkpoint: null, startProcess: started.Add)
+            .LaunchStableEntry([]);
+
+        Assert.Equal(InstallOutcome.Updated, result.Outcome);
+        Assert.Equal("2.0.0", result.InstalledVersion);
+        Assert.Null(result.FailureReason);
+        Assert.Equal(baseline.StableEntryPath, result.StableEntryPath);
+        Assert.Equal(stableEntryBytes, File.ReadAllBytes(result.StableEntryPath));
+        Assert.Equal(Path.Combine(installRoot, "payload-1", "GaleWorkTimer.exe"), started.Single().FileName);
+        Assert.Equal("payload-B"u8.ToArray(), File.ReadAllBytes(started.Single().FileName));
+        AssertDataSentinels(dataBefore);
     }
 
     [Fact]
@@ -59,7 +167,9 @@ public sealed class InstallManagerTests : IDisposable
     {
         var packageA = CreatePackage("1.0.0", "payload-A"u8.ToArray());
         var packageB = CreatePackage("2.0.0", "payload-B"u8.ToArray());
+        var dataBefore = CaptureDataSentinels();
         var baseline = new InstallManager(installRoot).InstallPackage(packageA, launcher);
+        var stableEntryBytes = File.ReadAllBytes(baseline.StableEntryPath);
         Assert.Equal(InstallOutcome.Installed, baseline.Outcome);
 
         var interrupted = new InstallManager(installRoot, boundary =>
@@ -76,13 +186,13 @@ public sealed class InstallManagerTests : IDisposable
         Assert.Equal("payload-A"u8.ToArray(), File.ReadAllBytes(recovered.ExecutablePath!));
         Assert.Contains("прерван", recovered.FailureReason!, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(directory, recovered.FailureReason!, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(stableEntryBytes, File.ReadAllBytes(recovered.StableEntryPath));
+        AssertDataSentinels(dataBefore);
     }
 
     [Theory]
     [InlineData(nameof(InstallBoundary.AfterTransactionTempWrite), "2.0.0", "payload-B")]
     [InlineData(nameof(InstallBoundary.AfterTransactionJournalRename), "2.0.0", "payload-B")]
-    [InlineData(nameof(InstallBoundary.AfterStableEntryTempWrite), "2.0.0", "payload-B")]
-    [InlineData(nameof(InstallBoundary.AfterStableEntryRename), "2.0.0", "payload-B")]
     [InlineData(nameof(InstallBoundary.AfterPayloadManifestWrite), "2.0.0", "payload-B")]
     [InlineData(nameof(InstallBoundary.AfterInactiveSlotDelete), "2.0.0", "payload-B")]
     [InlineData(nameof(InstallBoundary.AfterCandidateSlotRename), "2.0.0", "payload-B")]
@@ -96,9 +206,10 @@ public sealed class InstallManagerTests : IDisposable
         var packageA = CreatePackage("1.0.0", "payload-A"u8.ToArray());
         var packageB = CreatePackage("2.0.0", "payload-B"u8.ToArray());
         var packageC = CreatePackage("3.0.0", "payload-C"u8.ToArray());
-        new InstallManager(installRoot).InstallPackage(packageA, launcher);
+        var dataBefore = CaptureDataSentinels();
+        var baseline = new InstallManager(installRoot).InstallPackage(packageA, launcher);
+        var stableEntryBytes = File.ReadAllBytes(baseline.StableEntryPath);
         new InstallManager(installRoot).InstallPackage(packageB, launcher);
-        File.Delete(Path.Combine(installRoot, "GaleWorkTimer.exe"));
 
         var interrupted = new InstallManager(installRoot, boundary =>
         {
@@ -114,6 +225,8 @@ public sealed class InstallManagerTests : IDisposable
             Assert.Equal(InstallOutcome.RecoveredPrevious, recovered.Outcome);
         else
             Assert.Equal(InstallOutcome.Updated, recovered.Outcome);
+        Assert.Equal(stableEntryBytes, File.ReadAllBytes(baseline.StableEntryPath));
+        AssertDataSentinels(dataBefore);
     }
 
     [Theory]
@@ -123,6 +236,7 @@ public sealed class InstallManagerTests : IDisposable
     {
         var boundary = Enum.Parse<InstallBoundary>(boundaryName);
         var package = CreatePackage("1.0.0", "partial"u8.ToArray());
+        var dataBefore = CaptureDataSentinels();
         var interrupted = new InstallManager(installRoot, point =>
         {
             if (point == boundary)
@@ -137,6 +251,7 @@ public sealed class InstallManagerTests : IDisposable
         Assert.False(File.Exists(Path.Combine(installRoot, ".install-state.json")));
         Assert.Empty(Directory.GetDirectories(installRoot, "payload-*", SearchOption.TopDirectoryOnly));
         Assert.Contains("прерв", recovered.FailureReason!, StringComparison.OrdinalIgnoreCase);
+        AssertDataSentinels(dataBefore);
     }
 
     [Theory]
@@ -149,6 +264,7 @@ public sealed class InstallManagerTests : IDisposable
         var packageA = CreatePackage("1.0.0", "payload-A"u8.ToArray());
         var packageB = CreatePackage("2.0.0", "payload-B"u8.ToArray());
         var packageC = CreatePackage("3.0.0", "payload-C"u8.ToArray());
+        var dataBefore = CaptureDataSentinels();
         new InstallManager(installRoot).InstallPackage(packageA, launcher);
         new InstallManager(installRoot).InstallPackage(packageB, launcher);
         var writes = 0;
@@ -166,6 +282,7 @@ public sealed class InstallManagerTests : IDisposable
         Assert.Equal("payload-B"u8.ToArray(), File.ReadAllBytes(recovered.ExecutablePath!));
         Assert.Contains("прерван", recovered.FailureReason!, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(Directory.GetDirectories(installRoot, ".staging-*", SearchOption.TopDirectoryOnly));
+        AssertDataSentinels(dataBefore);
     }
 
     [Theory]
@@ -185,6 +302,7 @@ public sealed class InstallManagerTests : IDisposable
     {
         var interruptedAt = Enum.Parse<InstallBoundary>(boundaryName);
         var package = CreatePackage("1.0.0", "partial"u8.ToArray());
+        var dataBefore = CaptureDataSentinels();
         var stagedWrites = 0;
         var interrupted = new InstallManager(installRoot, boundary =>
         {
@@ -210,6 +328,7 @@ public sealed class InstallManagerTests : IDisposable
             Assert.Empty(Directory.GetDirectories(installRoot, "payload-*", SearchOption.TopDirectoryOnly));
             Assert.Contains("прер", recovered.FailureReason!, StringComparison.OrdinalIgnoreCase);
         }
+        AssertDataSentinels(dataBefore);
     }
 
     [Theory]
@@ -222,6 +341,7 @@ public sealed class InstallManagerTests : IDisposable
     public void Unsafe_archive_paths_are_rejected_without_changing_installed_payload(string unsafePath)
     {
         var packageA = CreatePackage("1.0.0", "payload-A"u8.ToArray());
+        var dataBefore = CaptureDataSentinels();
         new InstallManager(installRoot).InstallPackage(packageA, launcher);
         var before = File.ReadAllBytes(Path.Combine(installRoot, "payload-0", "GaleWorkTimer.exe"));
         var invalid = CreatePackage("2.0.0", "payload-B"u8.ToArray(), extraPath: unsafePath);
@@ -231,13 +351,14 @@ public sealed class InstallManagerTests : IDisposable
         Assert.Equal(InstallOutcome.Rejected, result.Outcome);
         Assert.Equal(before, File.ReadAllBytes(Path.Combine(installRoot, "payload-0", "GaleWorkTimer.exe")));
         Assert.False(File.Exists(Path.Combine(installRoot, "escaped.txt")));
-        Assert.Equal("database-sentinel"u8.ToArray(), File.ReadAllBytes(Path.Combine(dataRoot, "data.db")));
+        AssertDataSentinels(dataBefore);
     }
 
     [Fact]
     public void Symlink_archive_entry_is_rejected_before_switching()
     {
         var packageA = CreatePackage("1.0.0", "payload-A"u8.ToArray());
+        var dataBefore = CaptureDataSentinels();
         new InstallManager(installRoot).InstallPackage(packageA, launcher);
         var invalid = CreatePackage("2.0.0", "payload-B"u8.ToArray(), extraPath: "linked.txt",
             extraAttributes: unchecked((int)0xA1FF0000));
@@ -246,17 +367,20 @@ public sealed class InstallManagerTests : IDisposable
 
         Assert.Equal(InstallOutcome.Rejected, result.Outcome);
         Assert.Equal("payload-A"u8.ToArray(), File.ReadAllBytes(Path.Combine(installRoot, "payload-0", "GaleWorkTimer.exe")));
+        AssertDataSentinels(dataBefore);
     }
 
     [Fact]
     public void Invalid_manifest_file_list_and_integrity_are_rejected()
     {
+        var dataBefore = CaptureDataSentinels();
         var missing = CreatePackage("2.0.0", "payload-B"u8.ToArray(), omitRuntimeConfig: true);
         var badHash = CreatePackage("3.0.0", "payload-C"u8.ToArray(), tamperHash: true);
 
         Assert.Equal(InstallOutcome.Rejected, new InstallManager(installRoot).InstallPackage(missing, launcher).Outcome);
         Assert.Equal(InstallOutcome.Rejected, new InstallManager(installRoot).InstallPackage(badHash, launcher).Outcome);
         Assert.False(Directory.Exists(installRoot));
+        AssertDataSentinels(dataBefore);
     }
 
     [Fact]
@@ -265,9 +389,9 @@ public sealed class InstallManagerTests : IDisposable
         var packageA = CreatePackage("1.0.0", "payload-A"u8.ToArray());
         var packageB = CreatePackage("2.0.0", "payload-B"u8.ToArray());
         var packageC = CreatePackage("3.0.0", "payload-C"u8.ToArray());
+        var dataBefore = CaptureDataSentinels();
         new InstallManager(installRoot).InstallPackage(packageA, launcher);
         new InstallManager(installRoot).InstallPackage(packageB, launcher);
-        var dataBefore = Directory.GetFiles(dataRoot).ToDictionary(path => Path.GetFileName(path)!, File.ReadAllBytes);
 
         var blocked = new InstallManager(installRoot, boundary =>
         {
@@ -277,7 +401,7 @@ public sealed class InstallManagerTests : IDisposable
 
         Assert.Equal(InstallOutcome.RolledBack, blocked.Outcome);
         Assert.Equal("payload-B"u8.ToArray(), File.ReadAllBytes(Path.Combine(installRoot, "payload-1", "GaleWorkTimer.exe")));
-        Assert.Equal(dataBefore, Directory.GetFiles(dataRoot).ToDictionary(path => Path.GetFileName(path)!, File.ReadAllBytes));
+        AssertDataSentinels(dataBefore);
     }
 
     [Fact]
@@ -287,7 +411,7 @@ public sealed class InstallManagerTests : IDisposable
         var packageB = CreatePackage("2.0.0", "payload-B"u8.ToArray());
         new InstallManager(installRoot).InstallPackage(packageA, launcher);
         var payloadBefore = File.ReadAllBytes(Path.Combine(installRoot, "payload-0", "GaleWorkTimer.exe"));
-        var dataBefore = Directory.GetFiles(dataRoot).ToDictionary(path => Path.GetFileName(path)!, File.ReadAllBytes);
+        var dataBefore = CaptureDataSentinels();
 
         var blocked = new InstallManager(installRoot, checkpoint: null, applicationRunning: () => true)
             .InstallPackage(packageB, launcher);
@@ -296,7 +420,7 @@ public sealed class InstallManagerTests : IDisposable
         Assert.Contains("APP_RUNNING", blocked.FailureReason!, StringComparison.Ordinal);
         Assert.Equal(payloadBefore, File.ReadAllBytes(Path.Combine(installRoot, "payload-0", "GaleWorkTimer.exe")));
         Assert.False(Directory.Exists(Path.Combine(installRoot, "payload-1")));
-        Assert.Equal(dataBefore, Directory.GetFiles(dataRoot).ToDictionary(path => Path.GetFileName(path)!, File.ReadAllBytes));
+        AssertDataSentinels(dataBefore);
     }
 
     [Fact]
@@ -305,6 +429,7 @@ public sealed class InstallManagerTests : IDisposable
         var packageA = CreatePackage("1.0.0", "payload-A"u8.ToArray());
         var packageB = CreatePackage("2.0.0", "payload-B"u8.ToArray());
         var packageC = CreatePackage("3.0.0", "payload-C"u8.ToArray());
+        var dataBefore = CaptureDataSentinels();
         new InstallManager(installRoot).InstallPackage(packageA, launcher);
         using var entered = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
@@ -327,11 +452,13 @@ public sealed class InstallManagerTests : IDisposable
         Assert.Equal(InstallOutcome.Rejected, concurrent.Outcome);
         Assert.Equal(InstallOutcome.Updated, completed.Outcome);
         Assert.Equal("payload-B"u8.ToArray(), File.ReadAllBytes(Path.Combine(installRoot, "payload-1", "GaleWorkTimer.exe")));
+        AssertDataSentinels(dataBefore);
     }
 
     [Fact]
     public void Package_builder_produces_repeatable_verified_zip_of_the_complete_publish_tree()
     {
+        var dataBefore = CaptureDataSentinels();
         var publishRoot = Path.Combine(directory, "publish");
         Directory.CreateDirectory(Path.Combine(publishRoot, "runtimes", "win-x64"));
         File.WriteAllBytes(Path.Combine(publishRoot, "GaleWorkTimer.exe"), "apphost"u8.ToArray());
@@ -355,12 +482,14 @@ public sealed class InstallManagerTests : IDisposable
         Assert.Equal(InstallOutcome.Installed, installed.Outcome);
         Assert.Equal("native"u8.ToArray(), File.ReadAllBytes(Path.Combine(installRoot,
             "payload-0", "runtimes", "win-x64", "native.dll")));
+        AssertDataSentinels(dataBefore);
     }
 
     private string CreatePackage(string version, byte[] executable, string? extraPath = null,
-        int? extraAttributes = null, bool tamperHash = false, bool omitRuntimeConfig = false)
+        int? extraAttributes = null, bool tamperHash = false, bool omitRuntimeConfig = false,
+        string? packageFileName = null)
     {
-        var path = Path.Combine(directory, version + ".zip");
+        var path = Path.Combine(directory, packageFileName ?? version + ".zip");
         var files = new Dictionary<string, byte[]>
         {
             ["GaleWorkTimer.exe"] = executable,
@@ -393,6 +522,104 @@ public sealed class InstallManagerTests : IDisposable
             entry.Write(bytes);
         }
         return path;
+    }
+
+    private const string CrashChildKey = "GWT_PACKAGING_CRASH_CHILD";
+    private const string CrashInstallRootKey = "GWT_PACKAGING_CRASH_INSTALL_ROOT";
+    private const string CrashPackagePathKey = "GWT_PACKAGING_CRASH_PACKAGE_PATH";
+    private const string CrashLauncherPathKey = "GWT_PACKAGING_CRASH_LAUNCHER_PATH";
+    private const string CrashBoundaryKey = "GWT_PACKAGING_CRASH_BOUNDARY";
+    private const string CrashMarkerPathKey = "GWT_PACKAGING_CRASH_MARKER_PATH";
+
+    private void CrashChildIfRequested()
+    {
+        if (Environment.GetEnvironmentVariable(CrashChildKey) != "1")
+            return;
+
+        var boundary = Enum.Parse<InstallBoundary>(Environment.GetEnvironmentVariable(CrashBoundaryKey)!);
+        var markerPath = Environment.GetEnvironmentVariable(CrashMarkerPathKey)!;
+        var manager = new InstallManager(Environment.GetEnvironmentVariable(CrashInstallRootKey)!, point =>
+        {
+            if (point != boundary)
+                return;
+            File.WriteAllText(markerPath, boundary.ToString());
+            Environment.FailFast("GWT_TEST_ABRUPT_EXIT");
+        }, applicationRunning: () => false);
+        manager.InstallPackage(Environment.GetEnvironmentVariable(CrashPackagePathKey)!,
+            Environment.GetEnvironmentVariable(CrashLauncherPathKey)!);
+        throw new InvalidOperationException("The configured abrupt termination boundary was not reached.");
+    }
+
+    private async Task RunAbruptInstallChild(string testName, string boundary, string packagePath)
+    {
+        var assemblyDirectory = new DirectoryInfo(AppContext.BaseDirectory);
+        var projectDirectory = assemblyDirectory.Parent?.Parent?.Parent
+            ?? throw new InvalidOperationException("Test project directory was not found.");
+        var projectPath = Path.Combine(projectDirectory.FullName, "GaleWorkTimer.Packaging.Tests.csproj");
+        var configuration = assemblyDirectory.Parent!.Name;
+        var markerPath = Path.Combine(directory, "abrupt-exit-marker");
+        var startInfo = new ProcessStartInfo(DotnetHostPath())
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        startInfo.ArgumentList.Add("test");
+        startInfo.ArgumentList.Add(projectPath);
+        startInfo.ArgumentList.Add("--no-build");
+        startInfo.ArgumentList.Add("--no-restore");
+        startInfo.ArgumentList.Add("--configuration");
+        startInfo.ArgumentList.Add(configuration);
+        startInfo.ArgumentList.Add("--filter");
+        startInfo.ArgumentList.Add("FullyQualifiedName=GaleWorkTimer.Packaging.Tests.InstallManagerTests." + testName);
+        startInfo.Environment[CrashChildKey] = "1";
+        startInfo.Environment[CrashInstallRootKey] = installRoot;
+        startInfo.Environment[CrashPackagePathKey] = packagePath;
+        startInfo.Environment[CrashLauncherPathKey] = launcher;
+        startInfo.Environment[CrashBoundaryKey] = boundary;
+        startInfo.Environment[CrashMarkerPathKey] = markerPath;
+
+        using var process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("Abrupt termination child process did not start.");
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+        var exitTask = process.WaitForExitAsync();
+        if (await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromMinutes(2))) != exitTask)
+        {
+            process.Kill(entireProcessTree: true);
+            await exitTask;
+            throw new TimeoutException("Abrupt termination child process did not exit.");
+        }
+        await Task.WhenAll(outputTask, errorTask);
+
+        Assert.NotEqual(0, process.ExitCode);
+        Assert.True(File.Exists(markerPath), "The child did not reach the configured persistent boundary.");
+        Assert.Equal(boundary, File.ReadAllText(markerPath));
+        Assert.Contains("GWT_TEST_ABRUPT_EXIT", outputTask.Result + errorTask.Result, StringComparison.Ordinal);
+    }
+
+    private static string DotnetHostPath()
+    {
+        var runtimeRoot = new DirectoryInfo(RuntimeEnvironment.GetRuntimeDirectory()).Parent?.Parent?.Parent?.FullName;
+        var executable = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet";
+        var candidates = new[]
+        {
+            Environment.GetEnvironmentVariable("DOTNET_HOST_PATH"),
+            Path.Combine(Environment.GetEnvironmentVariable("DOTNET_ROOT") ?? string.Empty, executable),
+            Path.Combine(runtimeRoot ?? string.Empty, executable)
+        };
+        return candidates.FirstOrDefault(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path)) ?? executable;
+    }
+
+    private Dictionary<string, byte[]> CaptureDataSentinels() =>
+        Directory.GetFiles(dataRoot).ToDictionary(path => Path.GetFileName(path)!, File.ReadAllBytes);
+
+    private void AssertDataSentinels(Dictionary<string, byte[]> expected)
+    {
+        var actual = CaptureDataSentinels();
+        Assert.Equal(expected.Keys.Order(), actual.Keys.Order());
+        foreach (var (name, bytes) in expected)
+            Assert.Equal(bytes, actual[name]);
     }
 
     public void Dispose() => Directory.Delete(directory, recursive: true);

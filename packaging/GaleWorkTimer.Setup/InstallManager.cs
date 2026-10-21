@@ -55,6 +55,7 @@ public sealed class InstallManager
     private readonly string transactionPath;
     private readonly Action<InstallBoundary>? checkpoint;
     private readonly Func<bool> applicationRunning;
+    private readonly Action<ProcessStartInfo> startProcess;
 
     public InstallManager(string installRoot)
         : this(installRoot, null, null)
@@ -62,13 +63,14 @@ public sealed class InstallManager
     }
 
     internal InstallManager(string installRoot, Action<InstallBoundary>? checkpoint,
-        Func<bool>? applicationRunning = null)
+        Func<bool>? applicationRunning = null, Action<ProcessStartInfo>? startProcess = null)
     {
         this.installRoot = Path.GetFullPath(installRoot);
         statePath = Path.Combine(this.installRoot, ".install-state.json");
         transactionPath = Path.Combine(this.installRoot, TransactionName);
         this.checkpoint = checkpoint;
         this.applicationRunning = applicationRunning ?? HasRunningApplication;
+        this.startProcess = startProcess ?? (startInfo => { Process.Start(startInfo); });
     }
 
     public string StableEntryPath => Path.Combine(installRoot, StableEntryName);
@@ -81,9 +83,10 @@ public sealed class InstallManager
     public InstallResult InstallPackage(string packagePath, string launcherPath)
     {
         string? stagingPath = null;
+        VerifiedPackage? requestedPackage = null;
         try
         {
-            var verified = ReadAndVerifyPackage(packagePath);
+            requestedPackage = ReadAndVerifyPackage(packagePath);
             Directory.CreateDirectory(installRoot);
             EnsureNotReparse(installRoot);
             var lockPath = Path.Combine(installRoot, ".install.lock");
@@ -102,7 +105,7 @@ public sealed class InstallManager
             if (recovery.RecoveredPrevious)
                 return Result(InstallOutcome.RecoveredPrevious, recovery.State, recovery.Reason);
             var current = recovery.State;
-            if (current is not null && current.ManifestSha256 == verified.ManifestSha256)
+            if (current is not null && current.ManifestSha256 == requestedPackage.ManifestSha256)
             {
                 EnsureStableEntry(launcherPath);
                 var existingPath = PayloadPath(current.ActiveSlot);
@@ -116,15 +119,15 @@ public sealed class InstallManager
             var transaction = new UpdateTransaction(
                 current?.ActiveSlot,
                 targetSlot,
-                verified.Manifest.Version,
-                verified.ManifestSha256);
+                requestedPackage.Manifest.Version,
+                requestedPackage.ManifestSha256);
             WriteAtomic(transactionPath, JsonSerializer.SerializeToUtf8Bytes(transaction, JsonOptions),
                 InstallBoundary.AfterTransactionTempWrite, InstallBoundary.AfterTransactionJournalRename);
             EnsureStableEntry(launcherPath);
 
             stagingPath = Path.Combine(installRoot, ".staging-" + Guid.NewGuid().ToString("N"));
-            ExtractPackage(packagePath, stagingPath, verified, checkpoint);
-            WriteDurably(Path.Combine(stagingPath, PayloadManifestName), verified.ManifestBytes);
+            ExtractPackage(packagePath, stagingPath, requestedPackage, checkpoint);
+            WriteDurably(Path.Combine(stagingPath, PayloadManifestName), requestedPackage.ManifestBytes);
             checkpoint?.Invoke(InstallBoundary.AfterPayloadManifestWrite);
 
             if (Directory.Exists(targetPath))
@@ -140,8 +143,8 @@ public sealed class InstallManager
             var newState = new InstallState(
                 targetSlot,
                 current?.ActiveSlot,
-                verified.Manifest.Version,
-                verified.ManifestSha256);
+                requestedPackage.Manifest.Version,
+                requestedPackage.ManifestSha256);
             WriteAtomic(statePath, JsonSerializer.SerializeToUtf8Bytes(newState, JsonOptions),
                 InstallBoundary.AfterStateTempWrite, InstallBoundary.AfterStateRename);
             File.Delete(transactionPath);
@@ -161,16 +164,20 @@ public sealed class InstallManager
         catch (PackageValidationException exception)
         {
             if (File.Exists(transactionPath) || File.Exists(transactionPath + ".tmp"))
-                return ResultAfterFailure(exception.Message);
+                return ResultAfterFailure(exception.Message, requestedPackage);
             return Rejected(exception.Message);
         }
         catch (IOException)
         {
-            return ResultAfterFailure("[INSTALL_IO] Не удалось безопасно изменить установку. Закрой программу и повтори попытку.");
+            return ResultAfterFailure(
+                "[INSTALL_IO] Не удалось безопасно изменить установку. Закрой программу и повтори попытку.",
+                requestedPackage);
         }
         catch (UnauthorizedAccessException)
         {
-            return ResultAfterFailure("[INSTALL_ACCESS] Нет доступа к каталогу установки. Проверь права текущего пользователя.");
+            return ResultAfterFailure(
+                "[INSTALL_ACCESS] Нет доступа к каталогу установки. Проверь права текущего пользователя.",
+                requestedPackage);
         }
         finally
         {
@@ -244,7 +251,7 @@ public sealed class InstallManager
             };
             foreach (var argument in args)
                 startInfo.ArgumentList.Add(argument);
-            Process.Start(startInfo);
+            startProcess(startInfo);
             return Result(recovery.RecoveredPrevious
                     ? InstallOutcome.RecoveredPrevious
                     : recovery.State.PreviousSlot is null ? InstallOutcome.Installed : InstallOutcome.Updated,
@@ -267,17 +274,23 @@ public sealed class InstallManager
 
     private string PayloadPath(int slot) => Path.Combine(installRoot, $"payload-{slot}");
 
-    private InstallResult ResultAfterFailure(string reason)
+    private InstallResult ResultAfterFailure(string reason, VerifiedPackage? requestedPackage)
     {
+        var transactionJournalExists = File.Exists(transactionPath);
         var result = Recover();
-        if (result.Outcome == InstallOutcome.RecoveredPrevious)
+        if (transactionJournalExists && result.Outcome == InstallOutcome.RecoveredPrevious)
             return result with
             {
                 Outcome = InstallOutcome.RolledBack,
                 FailureReason = "[UPDATE_ROLLED_BACK] Обновление не завершено; восстановлена предыдущая проверенная версия. Причина: " + reason
             };
-        if (result.Outcome is InstallOutcome.Installed or InstallOutcome.Updated)
-            return result;
+        if (requestedPackage is not null && result.Outcome is (InstallOutcome.Installed or InstallOutcome.Updated))
+        {
+            var state = TryReadState();
+            if (state is not null && state.Version == requestedPackage.Manifest.Version &&
+                state.ManifestSha256 == requestedPackage.ManifestSha256 && IsValidSlot(state.ActiveSlot, state))
+                return result;
+        }
         return Rejected(reason);
     }
 
