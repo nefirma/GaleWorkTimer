@@ -7,9 +7,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GaleWorkTimer", "src\GaleWorkTimer\GaleWorkTimer.csproj", "{91AD824F-9060-448F-B6BA-569E63111F96}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GaleWorkTimer.Setup", "packaging\GaleWorkTimer.Setup\GaleWorkTimer.Setup.csproj", "{B0738738-EEA7-4F30-9384-23F674913C19}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GaleWorkTimer.Tests", "tests\GaleWorkTimer.Tests\GaleWorkTimer.Tests.csproj", "{A5DE7B98-9DFF-4689-A6DE-A204EA248ECA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GaleWorkTimer.Packaging.Tests", "tests\GaleWorkTimer.Packaging.Tests\GaleWorkTimer.Packaging.Tests.csproj", "{C3F80F5A-53B2-4664-A790-1521C871E822}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +37,18 @@ Global
 		{91AD824F-9060-448F-B6BA-569E63111F96}.Release|x64.Build.0 = Release|Any CPU
 		{91AD824F-9060-448F-B6BA-569E63111F96}.Release|x86.ActiveCfg = Release|Any CPU
 		{91AD824F-9060-448F-B6BA-569E63111F96}.Release|x86.Build.0 = Release|Any CPU
+		{B0738738-EEA7-4F30-9384-23F674913C19}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B0738738-EEA7-4F30-9384-23F674913C19}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B0738738-EEA7-4F30-9384-23F674913C19}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B0738738-EEA7-4F30-9384-23F674913C19}.Debug|x64.Build.0 = Debug|Any CPU
+		{B0738738-EEA7-4F30-9384-23F674913C19}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B0738738-EEA7-4F30-9384-23F674913C19}.Debug|x86.Build.0 = Debug|Any CPU
+		{B0738738-EEA7-4F30-9384-23F674913C19}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B0738738-EEA7-4F30-9384-23F674913C19}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B0738738-EEA7-4F30-9384-23F674913C19}.Release|x64.ActiveCfg = Release|Any CPU
+		{B0738738-EEA7-4F30-9384-23F674913C19}.Release|x64.Build.0 = Release|Any CPU
+		{B0738738-EEA7-4F30-9384-23F674913C19}.Release|x86.ActiveCfg = Release|Any CPU
+		{B0738738-EEA7-4F30-9384-23F674913C19}.Release|x86.Build.0 = Release|Any CPU
 		{A5DE7B98-9DFF-4689-A6DE-A204EA248ECA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A5DE7B98-9DFF-4689-A6DE-A204EA248ECA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A5DE7B98-9DFF-4689-A6DE-A204EA248ECA}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -45,6 +61,18 @@ Global
 		{A5DE7B98-9DFF-4689-A6DE-A204EA248ECA}.Release|x64.Build.0 = Release|Any CPU
 		{A5DE7B98-9DFF-4689-A6DE-A204EA248ECA}.Release|x86.ActiveCfg = Release|Any CPU
 		{A5DE7B98-9DFF-4689-A6DE-A204EA248ECA}.Release|x86.Build.0 = Release|Any CPU
+		{C3F80F5A-53B2-4664-A790-1521C871E822}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C3F80F5A-53B2-4664-A790-1521C871E822}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3F80F5A-53B2-4664-A790-1521C871E822}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C3F80F5A-53B2-4664-A790-1521C871E822}.Debug|x64.Build.0 = Debug|Any CPU
+		{C3F80F5A-53B2-4664-A790-1521C871E822}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C3F80F5A-53B2-4664-A790-1521C871E822}.Debug|x86.Build.0 = Debug|Any CPU
+		{C3F80F5A-53B2-4664-A790-1521C871E822}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C3F80F5A-53B2-4664-A790-1521C871E822}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C3F80F5A-53B2-4664-A790-1521C871E822}.Release|x64.ActiveCfg = Release|Any CPU
+		{C3F80F5A-53B2-4664-A790-1521C871E822}.Release|x64.Build.0 = Release|Any CPU
+		{C3F80F5A-53B2-4664-A790-1521C871E822}.Release|x86.ActiveCfg = Release|Any CPU
+		{C3F80F5A-53B2-4664-A790-1521C871E822}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -52,5 +80,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{91AD824F-9060-448F-B6BA-569E63111F96} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{A5DE7B98-9DFF-4689-A6DE-A204EA248ECA} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{C3F80F5A-53B2-4664-A790-1521C871E822} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal
