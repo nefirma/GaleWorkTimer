@@ -1,0 +1,55 @@
+{
+  "allowed_action_categories": [
+    "READ_ONLY_LOCAL",
+    "READ_ONLY_REMOTE",
+    "WORKSPACE_MUTATION",
+    "VCS_MUTATION"
+  ],
+  "done_definition": {
+    "extra": [],
+    "requires_evidence_for_all_ac": true,
+    "requires_merge": true,
+    "requires_reconcile": true
+  },
+  "forbidden_action_categories": [
+    "EXTERNAL_SIDE_EFFECT",
+    "DESTRUCTIVE_OR_IRREVERSIBLE_ACTION",
+    "PRODUCTION_OR_CUSTOMER_IMPACTING_ACTION",
+    "SECRET_READING_ACTION"
+  ],
+  "forbidden_paths": [
+    "SPEC.md",
+    "docs/TZ.md",
+    "docs/AXLE_PROJECT_KB.md",
+    ".opencode/**",
+    "src/GaleWorkTimer/Data/**",
+    "worktrees/**"
+  ],
+  "goal": "",
+  "human_gates": [],
+  "ir_version": 1,
+  "model_budget": {
+    "escalation_allowed_to": "T3_REASONING",
+    "max_attempts": 2,
+    "tier": "T1_CHEAP"
+  },
+  "priority": "P1",
+  "project": "default",
+  "risk": "High",
+  "scope_paths": [
+    "src/GaleWorkTimer/Services/TimerService.cs",
+    "src/GaleWorkTimer/ViewModels/MainWindowViewModel.cs",
+    "src/GaleWorkTimer/Views/MainWindow.axaml",
+    "src/GaleWorkTimer/Views/MainWindow.axaml.cs",
+    "tests/GaleWorkTimer.Tests/MainWindowViewModelTests.cs",
+    "tests/GaleWorkTimer.Tests/TimerBulkArchiveTests.cs",
+    "README.md",
+    "USER_GUIDE_RU.md",
+    "docs/wiki/pages/timers-bulk-archive.md",
+    "docs/evidence/timer-bulk-archive/**"
+  ],
+  "task_class": "scoped_feature",
+  "ticket_id": "T-5",
+  "title": "HANDOFF TICKET: Archive all \u2014 \u0430\u0440\u0445\u0438\u0432\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432\u0441\u0435 \u043e\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u044b\u0435 \u0442\u0430\u0439\u043c\u0435\u0440\u044b",
+  "validation_contract": []
+}
