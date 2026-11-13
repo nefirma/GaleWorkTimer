@@ -1,0 +1,56 @@
+{
+  "allowed_action_categories": [
+    "READ_ONLY_LOCAL",
+    "READ_ONLY_REMOTE",
+    "WORKSPACE_MUTATION",
+    "VCS_MUTATION"
+  ],
+  "done_definition": {
+    "extra": [],
+    "requires_evidence_for_all_ac": true,
+    "requires_merge": true,
+    "requires_reconcile": true
+  },
+  "forbidden_action_categories": [
+    "EXTERNAL_SIDE_EFFECT",
+    "DESTRUCTIVE_OR_IRREVERSIBLE_ACTION",
+    "PRODUCTION_OR_CUSTOMER_IMPACTING_ACTION",
+    "SECRET_READING_ACTION"
+  ],
+  "forbidden_paths": [
+    "SPEC.md",
+    "docs/TZ.md",
+    "docs/AXLE_PROJECT_KB.md",
+    ".opencode/**",
+    "src/GaleWorkTimer/Data/**",
+    "worktrees/**"
+  ],
+  "goal": "",
+  "human_gates": [],
+  "ir_version": 1,
+  "model_budget": {
+    "escalation_allowed_to": "T3_REASONING",
+    "max_attempts": 2,
+    "tier": "T1_CHEAP"
+  },
+  "priority": "P1",
+  "project": "default",
+  "risk": "High",
+  "scope_paths": [
+    "src/GaleWorkTimer/Services/TimerService.cs",
+    "src/GaleWorkTimer/ViewModels/MainWindowViewModel.cs",
+    "src/GaleWorkTimer/Views/MainWindow.axaml",
+    "src/GaleWorkTimer/Views/MainWindow.axaml.cs",
+    "tests/GaleWorkTimer.Tests/TimerDeleteTests.cs",
+    "tests/GaleWorkTimer.Tests/MainWindowViewModelTests.cs",
+    "tests/GaleWorkTimer.Tests/TimerBulkDeleteTests.cs",
+    "README.md",
+    "USER_GUIDE_RU.md",
+    "docs/wiki/pages/timers-bulk-delete.md",
+    "docs/evidence/timer-bulk-delete/**"
+  ],
+  "task_class": "scoped_feature",
+  "ticket_id": "T-6",
+  "title": "HANDOFF TICKET: Delete all \u2014 \u043e\u0447\u0438\u0441\u0442\u0438\u0442\u044c \u0430\u0440\u0445\u0438\u0432 \u0441 \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0438\u0435\u043c",
+  "validation_contract": []
+}
