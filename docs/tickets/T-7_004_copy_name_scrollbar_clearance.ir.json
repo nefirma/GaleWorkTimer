@@ -1,0 +1,53 @@
+{
+  "allowed_action_categories": [
+    "READ_ONLY_LOCAL",
+    "READ_ONLY_REMOTE",
+    "WORKSPACE_MUTATION",
+    "VCS_MUTATION"
+  ],
+  "done_definition": {
+    "extra": [],
+    "requires_evidence_for_all_ac": true,
+    "requires_merge": true,
+    "requires_reconcile": true
+  },
+  "forbidden_action_categories": [
+    "EXTERNAL_SIDE_EFFECT",
+    "DESTRUCTIVE_OR_IRREVERSIBLE_ACTION",
+    "PRODUCTION_OR_CUSTOMER_IMPACTING_ACTION",
+    "SECRET_READING_ACTION"
+  ],
+  "forbidden_paths": [
+    "SPEC.md",
+    "docs/TZ.md",
+    "docs/AXLE_PROJECT_KB.md",
+    ".opencode/**",
+    "src/GaleWorkTimer/Data/**",
+    "src/GaleWorkTimer/Services/**",
+    "src/GaleWorkTimer/ViewModels/**",
+    "src/GaleWorkTimer/Views/MainWindow.axaml.cs",
+    "worktrees/**"
+  ],
+  "goal": "",
+  "human_gates": [],
+  "ir_version": 1,
+  "model_budget": {
+    "escalation_allowed_to": "T3_REASONING",
+    "max_attempts": 2,
+    "tier": "T1_CHEAP"
+  },
+  "priority": "P1",
+  "project": "default",
+  "risk": "High",
+  "scope_paths": [
+    "src/GaleWorkTimer/Views/MainWindow.axaml",
+    "README.md",
+    "USER_GUIDE_RU.md",
+    "docs/wiki/pages/copy-name-scrollbar.md",
+    "docs/evidence/copy-name-scrollbar/**"
+  ],
+  "task_class": "scoped_feature",
+  "ticket_id": "T-7",
+  "title": "HANDOFF TICKET: \u041f\u043e\u043b\u043e\u0441\u0430 \u043f\u0440\u043e\u043a\u0440\u0443\u0442\u043a\u0438 \u043d\u0435 \u043f\u0435\u0440\u0435\u043a\u0440\u044b\u0432\u0430\u0435\u0442 Copy name",
+  "validation_contract": []
+}
