@@ -11,3 +11,11 @@ kb:
   senior: docs/AXLE_PROJECT_KB.md
   devops: docs/AXLE_PROJECT_KB.md
   gitea: docs/AXLE_PROJECT_KB.md
+
+# Loaded by the existing AXLE launcher on each new worker launch; no engine reload.
+# Preserve the canonical unit's PATH entries while exposing the installed SDK.
+worktree:
+  env:
+    DOTNET_ROOT: /home/phil/.dotnet
+    PATH: /home/phil/.dotnet:/usr/local/bin:/usr/bin:/home/phil/.local/bin
+    AXLE_DOTNET_UI_SMOKE_PROJECT: /home/phil/axle-midi/scripts/galeworktimer-ui-smoke/UiSmoke.csproj
