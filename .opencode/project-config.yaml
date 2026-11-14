@@ -38,7 +38,7 @@ devops:
       backup_root: /home/phil/.local/state/axle-midi
     canonical_runtime:
       handler: /home/phil/axle-midi/scripts/switch-project-runtime.py
-      handler_sha256: 72ecc28511ec5df0362164a64749a1cdb8ea5e8f706a14f1bc6a09511d43abd7
+      handler_sha256: 7c062ba7030da4968ad1c7aa08bfa84da2f17c9bf556382269de6a63e68f5a84
       service_manager_scope: user
       target_user: phil
       unit: axle-engine@galeworktimer.service
