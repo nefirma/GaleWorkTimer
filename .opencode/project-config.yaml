@@ -15,6 +15,9 @@ kb:
 # Loaded by the existing AXLE launcher on each new worker launch; no engine reload.
 # Preserve the canonical unit's PATH entries while exposing the installed SDK.
 worktree:
+  # First creation only: include earlier merged work without rewriting ticket history.
+  bootstrap:
+    - sh /home/phil/axle-midi/scripts/align-galeworktimer-worktree.sh
   env:
     DOTNET_ROOT: /home/phil/.dotnet
     PATH: /home/phil/.dotnet:/usr/local/bin:/usr/bin:/home/phil/.local/bin
