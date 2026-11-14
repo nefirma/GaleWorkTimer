@@ -28,7 +28,7 @@ devops:
   operations:
     protect_runtime_source:
       handler: /home/phil/axle-midi/scripts/protect-runtime-source.py
-      handler_sha256: bf619cef759f3074daee879e2cd6181eea4cb4a6f57fe4f27efb11039b1e4020
+      handler_sha256: 46ea121f5bf345c88d442caa8e9f914400fb20249a3b97bb60de8e256b89eddb
       native_method: os.fchmod
       runtime_root: /home/phil/axle-midi
       relative_file: axle_midi/__init__.py
