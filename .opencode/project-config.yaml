@@ -26,6 +26,16 @@ worktree:
 # Parameters for the authorized service operation, not rules in a global agent.
 devops:
   operations:
+    protect_runtime_source:
+      handler: /home/phil/axle-midi/scripts/protect-runtime-source.py
+      handler_sha256: bf619cef759f3074daee879e2cd6181eea4cb4a6f57fe4f27efb11039b1e4020
+      native_method: os.fchmod
+      runtime_root: /home/phil/axle-midi
+      relative_file: axle_midi/__init__.py
+      file_sha256: e6c4b2884fc0b5b17b814a5497a59a5c00e355b137bc5f345f7447099467a643
+      before_mode: '0664'
+      after_mode: '0644'
+      backup_root: /home/phil/.local/state/axle-midi
     canonical_runtime:
       handler: /home/phil/axle-midi/scripts/switch-project-runtime.py
       handler_sha256: 72ecc28511ec5df0362164a64749a1cdb8ea5e8f706a14f1bc6a09511d43abd7
