@@ -90,6 +90,31 @@ public sealed class TimerService : IDisposable
     public void ArchiveTimer(long timerId, long atMs) => SetArchived(timerId, true, atMs);
     public void UnarchiveTimer(long timerId, long atMs) => SetArchived(timerId, false, atMs);
 
+    public void ArchiveAllStopped(long atMs)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(atMs);
+        using var transaction = connection.BeginTransaction(deferred: false);
+        using (var invalidTimestamp = Command("""
+            SELECT 1 FROM timers t
+            WHERE t.is_archived = 0 AND t.updated_at_ms > $at
+                AND NOT EXISTS (SELECT 1 FROM sessions s
+                    WHERE s.timer_id = t.id AND s.stopped_at_ms IS NULL)
+            LIMIT 1;
+            """, transaction, ("$at", atMs)))
+        {
+            if (invalidTimestamp.ExecuteScalar() is not null)
+                throw new TimerDomainException(TimerError.InvalidTimestamp, "Timestamp precedes the last operation.");
+        }
+
+        Execute("""
+            UPDATE timers SET is_archived = 1, updated_at_ms = $at
+            WHERE is_archived = 0
+                AND NOT EXISTS (SELECT 1 FROM sessions s
+                    WHERE s.timer_id = timers.id AND s.stopped_at_ms IS NULL);
+            """, transaction, ("$at", atMs));
+        transaction.Commit();
+    }
+
     public void DeleteTimer(long timerId)
     {
         using var transaction = connection.BeginTransaction(deferred: false);

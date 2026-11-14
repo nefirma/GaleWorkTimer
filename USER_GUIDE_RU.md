@@ -102,6 +102,10 @@
 
 - **Remove from list** убирает Stopped Timer в **Archived timers**, сохраняя всю
   историю. **Restore to list** возвращает его в основной список.
+- **Archive all** одним нажатием переносит все Stopped Timer из списка в
+  **Archived timers**. Running и Paused не архивируются и продолжают работу;
+  checkbox selection не влияет на состав действия. Архивация сохраняет History
+  и Total; это обратимое действие, в отличие от **Delete**.
 - **Delete** необратимо удаляет Timer **и всю его историю**, включая Sessions
   и паузы. Кнопка доступна только для Stopped Timer, в том числе Archived.
   Running/Paused Timer сначала нужно явно остановить через **Stop**.
