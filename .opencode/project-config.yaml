@@ -23,6 +23,11 @@ worktree:
     PATH: /home/phil/.dotnet:/usr/local/bin:/usr/bin:/home/phil/.local/bin
     AXLE_DOTNET_UI_SMOKE_PROJECT: /home/phil/axle-midi/scripts/galeworktimer-ui-smoke/UiSmoke.csproj
 
+# Owner-declared result outputs only; never list files consumed by builds or tests.
+validation:
+  evidence_output_paths:
+    - docs/evidence/timer-bulk-archive/delivery.md
+
 # Parameters for the authorized service operation, not rules in a global agent.
 devops:
   operations:
