@@ -2,7 +2,7 @@
 
 - [Repository overview](../../README.md)
 - [Operational KB](../AXLE_PROJECT_KB.md)
-- [Requirements sources](../TZ.md)
+- [Canonical product and technical specification](../TZ.md)
 - [Execution log](../context5.md)
 - [Ticket contract](../HANDOFF_TICKET_TEMPLATE.md)
 

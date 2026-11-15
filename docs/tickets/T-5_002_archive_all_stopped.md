@@ -37,7 +37,7 @@ Branch and source revision are not assigned in this draft. Use only identities r
 
 ## Source of Truth (must read)
 - `.opencode/project-config.yaml`, `docs/AXLE_PROJECT_KB.md`, `docs/wiki/INDEX.md`.
-- `SPEC.md` §§6, 7, 14, 19, 20, 38–40; `README.md` — текущие archive/history/snapshot contracts.
+- `docs/TZ.md` §§6, 7, 14, 19, 20, 38–40; `README.md` — текущие archive/history/snapshot contracts.
 - `src/GaleWorkTimer/Services/TimerService.cs`: SetArchived, GetTimerState, immediate transactions.
 - `src/GaleWorkTimer/ViewModels/MainWindowViewModel.cs`: Execute, LoadTimers, ClearSelectedTotal.
 - `src/GaleWorkTimer/Views/MainWindow.axaml` и `.axaml.cs`: текущие индивидуальные действия.
@@ -46,13 +46,15 @@ Branch and source revision are not assigned in this draft. Use only identities r
 - EVIDENCE, локальное чтение 2026-11-13: массовой кнопки и массового service-действия нет.
 - EVIDENCE: Stopped соответствует Idle — отсутствует session с `stopped_at_ms IS NULL`.
 - EVIDENCE: SDK 10.0.401 доступен на development host; baseline build/tests в этой сессии не запускались.
-- Источники конкурирующих утверждений: запрос Фила задаёт новое поведение; SPEC задаёт существующие инварианты; текущий код доказывает только локальную реализацию. Remote/release state не проверен.
+- Источники конкурирующих утверждений: запрос Фила задаёт новое поведение; `docs/TZ.md` задаёт существующие инварианты; текущий код доказывает только локальную реализацию. Remote/release state не проверен.
 - RCA: отсутствие bulk UI/service подтверждено; причина проблемы скроллбара не относится к этому тикету.
 - Перед исполнением динамически проверить назначенную AXLE revision и отсутствие уже реализованного эквивалента. Не угадывать branch/SHA.
 
 ## Authorization and Scope
 - Scope Paths: ["src/GaleWorkTimer/Services/TimerService.cs", "src/GaleWorkTimer/ViewModels/MainWindowViewModel.cs", "src/GaleWorkTimer/Views/MainWindow.axaml", "src/GaleWorkTimer/Views/MainWindow.axaml.cs", "tests/GaleWorkTimer.Tests/MainWindowViewModelTests.cs", "tests/GaleWorkTimer.Tests/TimerBulkArchiveTests.cs", "README.md", "USER_GUIDE_RU.md", "docs/wiki/pages/timers-bulk-archive.md", "docs/evidence/timer-bulk-archive/**"]
-- Forbidden Paths: ["SPEC.md", "docs/TZ.md", "docs/AXLE_PROJECT_KB.md", ".opencode/**", "src/GaleWorkTimer/Data/**", "worktrees/**"]
+- Forbidden Paths: ["SPEC.md", "docs/AXLE_PROJECT_KB.md", ".opencode/**", "src/GaleWorkTimer/Data/**", "worktrees/**"]
+- Worker Forbidden Paths: ["docs/TZ.md", "docs/ssot/**"]
+- Lead Documentation Paths: ["docs/TZ.md"]
 - После отдельного разрешения исполнения: локальные изменения только в Scope Paths, isolated test DB, обычная AXLE PR delivery.
 - Сейчас разрешено только создание этого черновика. Не выполнять promote, Git mutation, запуск Senior или изменение пользовательской БД.
 - Исполнение не разрешает release, installer, deploy, migration, AXLE service/config/workflow changes или расширение scope.
@@ -95,7 +97,7 @@ PASS разрешён только при доказательстве всех 
 - Запустить affected xUnit tests и `dotnet build`; в конце один полный `dotnet test` для той же final revision.
 - UI smoke на isolated test profile: кнопка, mixed states, архив и Restore. Без личных данных.
 - Windows packaging/release и проверка установленной пользовательской версии не входят в тикет.
-- Изменения UI-контракта описать в scoped wiki/guide. Lead синхронизирует `SPEC.md` §20 перед финальным одобрением; Senior не редактирует Lead-owned SSOT.
+- Изменения UI-контракта описать в scoped wiki/guide. Lead синхронизирует `docs/TZ.md` §20 перед финальным одобрением через отдельно разрешённый документационный шаг в том же PR, затем выполняется свежий review. Senior не редактирует Lead-owned SSOT. Исторические PASS остаются привязаны к исходным входам; не повторять неизменённые продуктовые тесты только ради синхронизации документации.
 
 ## Efficiency and Stop Rules
 - Не повторять неизменённый тест/команду. Разрешена одна исправленная попытка после доказанной причины.

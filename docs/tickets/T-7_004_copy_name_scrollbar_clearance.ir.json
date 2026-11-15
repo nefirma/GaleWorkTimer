@@ -19,7 +19,6 @@
   ],
   "forbidden_paths": [
     "SPEC.md",
-    "docs/TZ.md",
     "docs/AXLE_PROJECT_KB.md",
     ".opencode/**",
     "src/GaleWorkTimer/Data/**",
@@ -30,6 +29,8 @@
   ],
   "goal": "",
   "human_gates": [],
+  "lead_documentation_paths": [],
+  "worker_forbidden_paths": ["docs/TZ.md", "docs/ssot/**"],
   "ir_version": 1,
   "model_budget": {
     "escalation_allowed_to": "T3_REASONING",
