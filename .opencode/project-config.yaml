@@ -11,3 +11,75 @@ kb:
   senior: docs/AXLE_PROJECT_KB.md
   devops: docs/AXLE_PROJECT_KB.md
   gitea: docs/AXLE_PROJECT_KB.md
+
+# Loaded by the existing AXLE launcher on each new worker launch; no engine reload.
+# Preserve the canonical unit's PATH entries while exposing the installed SDK.
+worktree:
+  # First creation only: include earlier merged work without rewriting ticket history.
+  bootstrap:
+    - sh /home/phil/axle-midi/scripts/align-galeworktimer-worktree.sh
+  env:
+    DOTNET_ROOT: /home/phil/.dotnet
+    PATH: /home/phil/.dotnet:/usr/local/bin:/usr/bin:/home/phil/.local/bin
+    AXLE_DOTNET_UI_SMOKE_PROJECT: /home/phil/axle-midi/scripts/galeworktimer-ui-smoke/UiSmoke.csproj
+
+# Owner-declared result outputs only; never list files consumed by builds or tests.
+validation:
+  evidence_output_paths:
+    - docs/evidence/timer-bulk-archive/delivery.md
+
+# Phil authorized integration and review, but not the final T-5 merge.
+workflow:
+  merge_hold_tickets: [T-5]
+
+# Parameters for the authorized service operation, not rules in a global agent.
+devops:
+  operations:
+    protect_runtime_source:
+      handler: /home/phil/axle-midi/scripts/protect-runtime-source.py
+      handler_sha256: 46ea121f5bf345c88d442caa8e9f914400fb20249a3b97bb60de8e256b89eddb
+      native_method: os.fchmod
+      runtime_root: /home/phil/axle-midi
+      relative_file: axle_midi/__init__.py
+      file_sha256: e6c4b2884fc0b5b17b814a5497a59a5c00e355b137bc5f345f7447099467a643
+      before_mode: '0664'
+      after_mode: '0644'
+      backup_root: /home/phil/.local/state/axle-midi
+    canonical_runtime:
+      handler: /home/phil/axle-midi/scripts/switch-project-runtime.py
+      handler_sha256: 7c062ba7030da4968ad1c7aa08bfa84da2f17c9bf556382269de6a63e68f5a84
+      service_manager_scope: user
+      target_user: phil
+      unit: axle-engine@galeworktimer.service
+      runtime_root: /home/phil/axle-midi
+      previous_runtime_root: /home/phil/axle-midi/worktrees/axle-deploy-bca57ba3
+      workflow_db: /home/phil/Projects/galeworktimer/.axle-midi/axle-workflow-v2.sqlite3
+      registry_db: /home/phil/.local/state/axle-midi/installation.sqlite3
+      profile_path: /home/phil/.config/axle-midi/projects/galeworktimer.yaml
+      profile_sha256: f4928ad4415ce9d95293211b5337775da69e6404b5bebbf52ac82ce3d9c8312b
+      shared_unit_path: /home/phil/.config/systemd/user/axle-engine@.service
+      shared_unit_sha256: 0c0d10a96abce48f565d48c3b88284658dd5851b868adaf12fd9e85b196688b3
+      instance_unit_path: /home/phil/.config/systemd/user/axle-engine@galeworktimer.service
+      unit_template_path: /home/phil/axle-midi/systemd/axle-engine@.service
+      unit_template_sha256: 3e484af8b0a4a00bfc857c3714568f4cdb4d0710670b1eedbdd059c4e594ba7a
+      backup_root: /home/phil/.local/state/axle-midi
+      cgroup_root: /sys/fs/cgroup
+      process_root: /proc
+      exec_prefix: [/usr/bin/env, python3]
+      entrypoint_name: axle-engine.py
+      argv: [--project, galeworktimer, watch, --interval, '2']
+      timeout_sec: 75
+      command_timeout_sec: 35
+      limits: {schema: 3, global: 1, project: 1}
+      admission:
+        queued_resume: {ticket: T-5, attempt: 2}
+      runtime_pins:
+        axle_midi/__init__.py: e6c4b2884fc0b5b17b814a5497a59a5c00e355b137bc5f345f7447099467a643
+        axle-engine.py: 43ea40a3fc24b8c5154dbec0a824d5e4d28c68790e11b2d7f24c6c9cc4a00e4e
+        axle_midi/workflow_service.py: 4472c9e248a0df5764bd651f75fd73ab6d50d40d324021e33bc087c568118c9e
+        axle_midi/workflow_production.py: 067f06234ddb7198417f5712c3f938adb3f518560420d279411884ba08fea969
+        axle_midi/scheduler_service.py: a39abc0ebb69c9163ca9a4debb161fc67e55f4fd4b0b29ef20ef53bf688bc426
+        axle_midi/installation_registry.py: dad87dc21569cdb4494a96c9fa1fa7fd6f99c1fa5bfd5ad5409d55506749f024
+        axle_midi/process_mgmt.py: e5e01d005f4d8f19da45bd158a905e4be3798399ca02ce3d89872f69733dfd08
+        axle_midi/email_adapter.py: 1745eb6c374111f8f4acedc3718e1cd8ad4675e4d72334cff2d74fbc371d4af8
+        axle_midi/project.py: ba82f077aebd6ef77694daf0c2d6b7ba3ab1868f1cbdc4723d41d4f2a303fb23

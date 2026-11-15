@@ -37,7 +37,7 @@ Branch and source revision are not assigned in this draft. Use only identities r
 
 ## Source of Truth (must read)
 - `.opencode/project-config.yaml`, `docs/AXLE_PROJECT_KB.md`, `docs/wiki/INDEX.md`.
-- `SPEC.md` §20 — Copy Name, theme/accessibility; `README.md` — runtime и validation boundaries.
+- `docs/TZ.md` §20 — Copy Name, theme/accessibility; `README.md` — runtime и validation boundaries.
 - `src/GaleWorkTimer/Views/MainWindow.axaml`: outer ScrollViewer, ActiveTimers, archive Expander, copyName style.
 - `src/GaleWorkTimer/Views/MainWindow.axaml.cs`: CopyTimerName.
 - `src/GaleWorkTimer/ViewModels/MainWindowViewModel.cs`: CopyTimerNameAsync и snapshot semantics.
@@ -53,7 +53,9 @@ Branch and source revision are not assigned in this draft. Use only identities r
 
 ## Authorization and Scope
 - Scope Paths: ["src/GaleWorkTimer/Views/MainWindow.axaml", "README.md", "USER_GUIDE_RU.md", "docs/wiki/pages/copy-name-scrollbar.md", "docs/evidence/copy-name-scrollbar/**"]
-- Forbidden Paths: ["SPEC.md", "docs/TZ.md", "docs/AXLE_PROJECT_KB.md", ".opencode/**", "src/GaleWorkTimer/Data/**", "src/GaleWorkTimer/Services/**", "src/GaleWorkTimer/ViewModels/**", "src/GaleWorkTimer/Views/MainWindow.axaml.cs", "worktrees/**"]
+- Forbidden Paths: ["SPEC.md", "docs/AXLE_PROJECT_KB.md", ".opencode/**", "src/GaleWorkTimer/Data/**", "src/GaleWorkTimer/Services/**", "src/GaleWorkTimer/ViewModels/**", "src/GaleWorkTimer/Views/MainWindow.axaml.cs", "worktrees/**"]
+- Worker Forbidden Paths: ["docs/TZ.md", "docs/ssot/**"]
+- Lead Documentation Paths: []
 - После отдельного разрешения исполнения: native XAML layout fix и scoped docs/evidence; normal AXLE PR delivery.
 - Сейчас разрешён только черновик. No promote, no Senior/Git/workflow mutations.
 - Не менять clipboard handler, timer logic, schema, theme engine, framework/dependencies, startup/installer или пользовательскую БД.
@@ -98,7 +100,7 @@ PASS разрешён только при доказательстве всех 
 - Скриншот из исходной заявки не обязателен при доказанной локальной репродукции; отсутствие репродукции требует platform/reference evidence.
 - Existing CopyTimerNameAsync tests и один final `dotnet test`; XAML compile через `dotnet build`.
 - Платформу и runtime revision указать точно. Linux evidence не называть Windows verification; user release/Windows packaging вне scope.
-- Новые shared SSOT semantics не вводятся: это восстановление существующей доступности Copy Name. Wiki описывает доказанный layout fix; Lead-owned SPEC не изменять.
+- Новые shared SSOT semantics не вводятся: это восстановление существующей доступности Copy Name. Wiki описывает доказанный layout fix; Senior не изменяет Lead-owned `docs/TZ.md`.
 
 ## Efficiency and Stop Rules
 - Не повторять неизменённый probe/test; одна corrected retry после конкретной причины, stop после второго отказа той же границы.

@@ -66,8 +66,12 @@
 ## Authorization Boundary
 - Scope Paths: ["<exact authorized path or bounded glob>"]
 - Forbidden Paths: []
+- Worker Forbidden Paths: ["docs/TZ.md", "docs/ssot/**"]
+- Lead Documentation Paths: []
+- Required specification synchronization uses exact Lead Documentation Paths
+  and a separately approved Lead step; it does not expand worker scope.
 
-Replace both JSON arrays with approved repository-relative paths, including required
+Set the scope and prohibition arrays to approved repository-relative paths, including required
 documentation/evidence. Missing scope does not permit all files. Do not use a
 repository-wide wildcard to pass a gate. If no workspace change is authorized,
 use Scope Paths: [] and explicit Allowed Action Categories without WORKSPACE_MUTATION
