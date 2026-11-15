@@ -62,6 +62,12 @@ If sources conflict on behavior, stop with `SSOT_DRIFT`; do not redesign.
 - Behavior that must remain unchanged:
 
 ## Authorization and Scope
+
+- Product requirements: `docs/TZ.md`; optional linked sections: `docs/ssot/**`.
+- Worker Forbidden Paths: ["docs/TZ.md", "docs/ssot/**"]
+- Lead Documentation Paths: []
+- Required Lead synchronization names exact Markdown paths above, outside
+  worker Scope Paths and absolute Forbidden Paths. Senior must not edit them.
 - Scope Paths: ["<exact authorized path or bounded glob>"]
 - Forbidden Paths: []
 

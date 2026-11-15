@@ -2,7 +2,7 @@
 
 .NET 10 / Avalonia 12 desktop executable with the accepted T1 SQLite core
 (`Microsoft.Data.Sqlite`). One production assembly and one xUnit test project.
-Product SSOT: [SPEC.md](SPEC.md). Current source stage: **T2.5**, adding newest-first
+Product SSOT: [docs/TZ.md](docs/TZ.md). Current source stage: **T2.5**, adding newest-first
 Timer lists and one-click Copy Name to the accepted T2.4 functionality.
 T2.5 also includes a selected-Timer **Общее время** calculator in `HH:MM`.
 No elapsed-time polling; T3 is not implemented.

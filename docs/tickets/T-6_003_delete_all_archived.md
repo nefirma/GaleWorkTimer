@@ -36,7 +36,7 @@ Branch and source revision are not assigned in this draft. Use only identities r
 
 ## Source of Truth (must read)
 - `.opencode/project-config.yaml`, `docs/AXLE_PROJECT_KB.md`, `docs/wiki/INDEX.md`.
-- `SPEC.md` §§20, 38–40; `README.md` — подтверждение, Stopped-only, transaction и History semantics.
+- `docs/TZ.md` §§20, 38–40; `README.md` — подтверждение, Stopped-only, transaction и History semantics.
 - `src/GaleWorkTimer/Views/MainWindow.axaml.cs`: DeleteTimer dialog, Cancel focus, failure display.
 - `src/GaleWorkTimer/Services/TimerService.cs`: DeleteTimer, проверка open session, порядок dependent deletes.
 - `src/GaleWorkTimer/ViewModels/MainWindowViewModel.cs`: Execute, LoadTimers и History filtering.
@@ -44,15 +44,17 @@ Branch and source revision are not assigned in this draft. Use only identities r
 
 ## Evidence State
 - EVIDENCE, локальное чтение 2026-11-13: существует только индивидуальное Delete; bulk UI/service отсутствует.
-- EVIDENCE: текущая реализация использует таблицы `timers`, `sessions`, `pauses`; не переносить в код иллюстративное имя `session_pauses` из SPEC §13.
+- EVIDENCE: текущая реализация использует таблицы `timers`, `sessions`, `pauses`; не переносить в код иллюстративное имя `session_pauses` из `docs/TZ.md` §13.
 - EVIDENCE: SDK 10.0.401 доступен; текущий dialog использует Cancel как IsDefault/IsCancel и focus target.
-- Источники: Фил задаёт новый bulk flow; SPEC §40 задаёт safety semantics; код задаёт текущую schema/API. Remote/release state не доказан.
+- Источники: Фил задаёт новый bulk flow; `docs/TZ.md` §40 задаёт safety semantics; код задаёт текущую schema/API. Remote/release state не доказан.
 - RCA отсутствия bulk-действия подтверждён UI/service; никакая текущая runtime DB не проверялась.
 - Перед исполнением проверить назначенную AXLE revision. Baseline тесты и GUI этого изменения ещё NOT_YET_PROVEN.
 
 ## Authorization and Scope
 - Scope Paths: ["src/GaleWorkTimer/Services/TimerService.cs", "src/GaleWorkTimer/ViewModels/MainWindowViewModel.cs", "src/GaleWorkTimer/Views/MainWindow.axaml", "src/GaleWorkTimer/Views/MainWindow.axaml.cs", "tests/GaleWorkTimer.Tests/TimerDeleteTests.cs", "tests/GaleWorkTimer.Tests/MainWindowViewModelTests.cs", "tests/GaleWorkTimer.Tests/TimerBulkDeleteTests.cs", "README.md", "USER_GUIDE_RU.md", "docs/wiki/pages/timers-bulk-delete.md", "docs/evidence/timer-bulk-delete/**"]
-- Forbidden Paths: ["SPEC.md", "docs/TZ.md", "docs/AXLE_PROJECT_KB.md", ".opencode/**", "src/GaleWorkTimer/Data/**", "worktrees/**"]
+- Forbidden Paths: ["SPEC.md", "docs/AXLE_PROJECT_KB.md", ".opencode/**", "src/GaleWorkTimer/Data/**", "worktrees/**"]
+- Worker Forbidden Paths: ["docs/TZ.md", "docs/ssot/**"]
+- Lead Documentation Paths: ["docs/TZ.md"]
 - После отдельного разрешения исполнения: только scoped source/tests/docs, isolated test DB и нормальная AXLE PR delivery.
 - Сейчас: только черновик; no promote, no Senior, no Git/workflow mutation.
 - Запрещены работа с пользовательской БД, migration, backup/retention subsystem, release/deploy и конфигурация AXLE.
@@ -105,7 +107,7 @@ PASS разрешён только при доказательстве всех 
 - Affected xUnit tests, `dotnet build`, один финальный полный `dotnet test` на final revision.
 - Desktop smoke с synthetic archive: focus, Enter, Escape, Close, Cancel, confirm, error. Только isolated profile/DB.
 - Прямой SQL допустим только как тестовая failure injection; production data mutation запрещена.
-- Lead синхронизирует `SPEC.md` §§20/40 перед финальным одобрением. Senior обновляет только scoped wiki/guide, не Lead-owned SSOT.
+- Lead синхронизирует `docs/TZ.md` §§20/40 перед финальным одобрением через отдельно разрешённый документационный шаг в том же PR, затем выполняется свежий review. Senior обновляет только scoped wiki/guide, не Lead-owned SSOT.
 - Release/Windows installer/доставка пользователю не входят в этот outcome.
 
 ## Efficiency and Stop Rules

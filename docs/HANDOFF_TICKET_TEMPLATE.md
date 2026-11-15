@@ -77,6 +77,13 @@ Rules:
 - Assumptions that this ticket must resolve:
 
 ## Authorization and Scope
+
+- Product requirements: `docs/TZ.md`; optional linked sections: `docs/ssot/**`.
+- Worker Forbidden Paths: ["docs/TZ.md", "docs/ssot/**"]
+- Lead Documentation Paths: []
+- Required Lead synchronization names exact Markdown paths above, outside
+  worker Scope Paths and absolute Forbidden Paths. It requires a separate
+  approved Lead documentation step; Senior must not edit those documents.
 - Scope Paths: ["<exact authorized path or bounded glob>"]
 - Forbidden Paths: []
 

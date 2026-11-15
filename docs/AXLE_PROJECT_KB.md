@@ -2,6 +2,15 @@
 
 ## Authoritative inputs
 
+- Product requirements: `docs/TZ.md`, migrated without requirement changes from
+  the former `SPEC.md`. `SPEC.md` is only a compatibility link. Optional detailed
+  specification sections belong under `docs/ssot/` and are linked from `docs/TZ.md`.
+- Senior must not edit the canonical specification. Tickets declare exact
+  `Lead Documentation Paths` for required synchronization and use
+  `Worker Forbidden Paths` for role-only protection. Absolute `Forbidden Paths`
+  applies to both roles. Lead synchronization requires a separately approved
+  exact-path documentation step and fresh review in the same PR.
+
 - Project identity and role KB paths: `.opencode/project-config.yaml` in the
   registered project root. The registered AXLE profile owns the authority remote
   and base branch. Do not infer them from the current checkout or another project.
