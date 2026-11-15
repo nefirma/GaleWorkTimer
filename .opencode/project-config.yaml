@@ -27,6 +27,9 @@ worktree:
 validation:
   evidence_output_paths:
     - docs/evidence/timer-bulk-archive/delivery.md
+  # The product/compiler/tests do not consume this human-readable navigation file.
+  non_input_documentation_paths:
+    - README.md
 
 # Phil authorized integration and review, but not the final T-5 merge.
 workflow:
@@ -75,8 +78,8 @@ devops:
         queued_resume: {ticket: T-5, attempt: 2}
       runtime_pins:
         axle_midi/__init__.py: e6c4b2884fc0b5b17b814a5497a59a5c00e355b137bc5f345f7447099467a643
-        axle-engine.py: 43ea40a3fc24b8c5154dbec0a824d5e4d28c68790e11b2d7f24c6c9cc4a00e4e
-        axle_midi/workflow_service.py: 4472c9e248a0df5764bd651f75fd73ab6d50d40d324021e33bc087c568118c9e
+        axle-engine.py: 8ca6d7e863cdf341f2116995c118e427cb3fda0f54f9096da04d3337c073bc8a
+        axle_midi/workflow_service.py: 7941ad9bd6373bf38e62158f42f49fa0164def9e588706d8843f9fe2339a79dd
         axle_midi/workflow_production.py: 067f06234ddb7198417f5712c3f938adb3f518560420d279411884ba08fea969
         axle_midi/scheduler_service.py: a39abc0ebb69c9163ca9a4debb161fc67e55f4fd4b0b29ef20ef53bf688bc426
         axle_midi/installation_registry.py: dad87dc21569cdb4494a96c9fa1fa7fd6f99c1fa5bfd5ad5409d55506749f024
