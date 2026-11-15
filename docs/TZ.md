@@ -864,6 +864,40 @@ Timer с open Session архивировать нельзя.
 
 Сначала нужен Stop.
 
+## Archive all
+
+На вкладке Timers кнопка `Archive all` одним нажатием, без дополнительного
+диалога, архивирует все persisted неархивированные Timer без open Session
+(`is_archived = 0` и нет Session с `stopped_at_ms IS NULL`). Это Stopped / IDLE,
+включая Timer без единой Session. Running и Paused исключены: операция не
+останавливает их и не закрывает Sessions или Pauses. Checkbox selection,
+видимость строк и прокрутка не определяют состав операции.
+
+Кнопка остаётся видимой и disabled только при отсутствии Stopped Timer в
+текущей UI-проекции. Service независимо перепроверяет persisted eligibility
+внутри одной immediate SQLite transaction; устаревшая UI-проекция не разрешает
+архивировать неподходящие Timer. Это один bulk-вызов, не цикл отдельных commits.
+
+Для всего eligible set используется единый неотрицательный command timestamp
+(UTC Unix milliseconds). Внутри той же transaction проверяется, что он не меньше
+`updated_at_ms` каждого кандидата. Изменяются только `is_archived = 1` и
+`updated_at_ms = command timestamp`. Ошибка записи или недопустимый timestamp
+отменяет всю операцию без частичных изменений; ошибочный Timer нельзя молча
+пропустить. UI показывает ошибку, а не успешную архивацию. Пустой eligible set
+и повторный вызов после успешной архивации — безопасные no-op.
+
+Sessions, Pauses и History сохраняются; cumulative Total остаётся доступным
+по правилам §3 и §7, в том числе после повторного открытия БД. Остальные поля
+Timer и порядок newest-first не меняются. Архивация обратима через `Restore`
+из Archived timers; это не permanent Delete (§40), удаляющий Timer и историю.
+Индивидуальный `Remove from list` сохраняет прежнее поведение.
+
+После commit списки Timers и Archived обновляются одним общим post-commit
+snapshot по §7; результат «Общее время» сбрасывается до следующего явного
+расчёта. Существующие History duration snapshots не пересчитываются. При
+post-commit reload failure UI сообщает «сохранено, но не обновлено»: запись
+уже сохранена, ошибка обновления не означает rollback.
+
 ---
 
 # 21. Global hotkeys
