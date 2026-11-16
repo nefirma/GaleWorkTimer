@@ -53,8 +53,10 @@ dotnet run --project src/GaleWorkTimer
 ```
 
 The default **Timers** tab supports Add, Edit, Start, Pause, Resume, Stop and
-Remove from list. Active and archived timers are displayed newest first by
-persisted creation timestamp descending, then ID descending; existing records
+Remove from list. **Archive all** archives every currently Stopped timer in one
+atomic action; Running and Paused timers are excluded. Archive preserves all
+history and can be reversed with Restore. Active and archived timers are
+displayed newest first by persisted creation timestamp descending, then ID descending; existing records
 are not reordered in storage. Every active and
 archived timer shows cumulative active **Total** across all its sessions, excluding
 pauses. Running totals use one shared explicit snapshot per list refresh and

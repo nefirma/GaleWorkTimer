@@ -40,6 +40,7 @@ public sealed partial class MainWindow : Window
     private void ResumeTimer(object? sender, RoutedEventArgs e) => model.ResumeTimer(Row(sender).Id, NowMs());
     private void StopTimer(object? sender, RoutedEventArgs e) => model.StopTimer(Row(sender).Id, NowMs());
     private void ArchiveTimer(object? sender, RoutedEventArgs e) => model.ArchiveTimer(Row(sender).Id, NowMs());
+    private void ArchiveAllStopped(object? sender, RoutedEventArgs e) => model.ArchiveAllStopped(NowMs());
     private void RestoreTimer(object? sender, RoutedEventArgs e) => model.RestoreTimer(Row(sender).Id, NowMs());
     private void RefreshHistory(object? sender, RoutedEventArgs e) => model.RefreshHistory(NowMs());
     private void RefreshTimers(object? sender, RoutedEventArgs e) => model.RefreshTimers(NowMs());

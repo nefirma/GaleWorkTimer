@@ -44,6 +44,7 @@
                       ItemsSource="{x:Static domain:TimerPalette.Colors}" />
             <Button Content="+ Add timer" Click="AddTimer" />
             <Button Content="Refresh" Click="RefreshTimers" />
+            <Button Content="Archive all" Click="ArchiveAllStopped" IsEnabled="{Binding CanArchiveAllStopped}" />
             <Button Content="Общее время" Click="CalculateSelectedTotal" />
             <TextBlock Text="{Binding SelectedTotalText}" FontSize="20" FontWeight="SemiBold"
                        VerticalAlignment="Center" Margin="4,0,0,8"

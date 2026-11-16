@@ -22,6 +22,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly TimerService service;
     public IReadOnlyList<TimerRow> Timers { get; private set; } = [];
     public IReadOnlyList<TimerRow> ArchivedTimers { get; private set; } = [];
+    public bool CanArchiveAllStopped => Timers.Any(timer => timer.State == TimerState.Idle);
     public IReadOnlyList<HistoryRow> History { get; private set; } = [];
     public string SuggestedColorKey => TimerPalette.NextKey(Timers.Count);
     public long TimersSnapshotAtMs { get; private set; }
@@ -42,6 +43,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public bool RenameTimer(long id, string name, long atMs) => Execute(() => service.RenameTimer(id, name, atMs), atMs);
     public bool EditTimer(long id, string name, string colorKey, long atMs) => Execute(() => service.EditTimer(id, name, colorKey, atMs), atMs);
     public bool ArchiveTimer(long id, long atMs) => Execute(() => service.ArchiveTimer(id, atMs), atMs);
+    public bool ArchiveAllStopped(long atMs) => Execute(() => service.ArchiveAllStopped(atMs), atMs);
     public bool RestoreTimer(long id, long atMs) => Execute(() => service.UnarchiveTimer(id, atMs), atMs);
     public bool DeleteTimer(long id, long snapshotAtMs) => Execute(() => service.DeleteTimer(id), snapshotAtMs);
     public bool StartTimer(long id, long atMs) => Execute(() => service.Start(id, atMs), atMs);
@@ -172,6 +174,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         TimersSnapshotAtMs = snapshotAtMs;
         ClearSelectedTotal();
         Changed(nameof(Timers));
+        Changed(nameof(CanArchiveAllStopped));
         Changed(nameof(ArchivedTimers));
         var byId = all.ToDictionary(timer => timer.Id);
         History = History.Where(row => byId.ContainsKey(row.Snapshot.Session.TimerId)).Select(row =>

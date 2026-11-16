@@ -448,5 +448,96 @@ public sealed class MainWindowViewModelTests : IDisposable
         Assert.Equal(2, model.History.Count);
     }
 
+    [Fact]
+    public void Archive_all_uses_persisted_state_and_refreshes_timer_projection_once_without_ticking_history()
+    {
+        using var service = new TimerService(DatabasePath);
+        var becomesRunning = service.CreateTimer("Becomes running", 0).Id;
+        var stopped = service.CreateTimer("Stopped", 0).Id;
+        service.Start(stopped, 1_000);
+        service.Stop(stopped, 2_000);
+        var model = new MainWindowViewModel(service, 3_000);
+        Assert.True(model.RefreshHistory(3_000));
+        var history = Assert.Single(model.History);
+        model.CalculateSelectedTotal([stopped]);
+        Assert.Equal("00:00", model.SelectedTotalText);
+        Assert.True(model.CanArchiveAllStopped);
+
+        var timerNotifications = 0;
+        var archivedNotifications = 0;
+        var canArchiveNotifications = 0;
+        model.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(model.Timers)) timerNotifications++;
+            if (args.PropertyName == nameof(model.ArchivedTimers)) archivedNotifications++;
+            if (args.PropertyName == nameof(model.CanArchiveAllStopped)) canArchiveNotifications++;
+        };
+
+        service.Start(becomesRunning, 4_000); // The visible UI projection is now stale.
+        Assert.True(model.ArchiveAllStopped(5_000));
+
+        Assert.Equal(TimerState.Running, service.GetTimerState(becomesRunning));
+        Assert.False(service.GetTimer(becomesRunning).IsArchived);
+        Assert.True(service.GetTimer(stopped).IsArchived);
+        Assert.Equal(becomesRunning, Assert.Single(model.Timers).Id);
+        Assert.Equal(new[] { stopped }, model.ArchivedTimers.Select(timer => timer.Id));
+        Assert.False(model.CanArchiveAllStopped);
+        Assert.Equal(5_000, model.TimersSnapshotAtMs);
+        Assert.Equal("", model.SelectedTotalText);
+        Assert.Same(history, Assert.Single(model.History));
+        Assert.Equal(3_000, model.HistorySnapshotAtMs);
+        Assert.Equal((1, 1, 1), (timerNotifications, archivedNotifications, canArchiveNotifications));
+    }
+
+    [Fact]
+    public void Archive_all_write_failure_is_not_reported_as_success_or_partial_archive()
+    {
+        using var service = new TimerService(DatabasePath);
+        service.CreateTimer("One", 0);
+        service.CreateTimer("Two", 0);
+        var model = new MainWindowViewModel(service, 0);
+        using (var database = new SqliteConnection($"Data Source={DatabasePath};Pooling=False"))
+        {
+            database.Open();
+            using var command = database.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE archive_attempts(timer_id INTEGER NOT NULL);
+                CREATE TRIGGER fail_second_archive AFTER UPDATE OF is_archived ON timers
+                WHEN NEW.is_archived = 1
+                BEGIN
+                    INSERT INTO archive_attempts VALUES (NEW.id);
+                    SELECT CASE WHEN (SELECT count(*) FROM archive_attempts) = 2
+                        THEN RAISE(ABORT, 'private SQL failure') END;
+                END;
+                """;
+            command.ExecuteNonQuery();
+        }
+
+        Assert.False(model.ArchiveAllStopped(1_000));
+
+        Assert.Equal(2, model.Timers.Count);
+        Assert.Empty(model.ArchivedTimers);
+        Assert.All(service.GetTimers(), timer => Assert.False(timer.IsArchived));
+        Assert.Contains("Could not save this change", model.ErrorMessage);
+        Assert.DoesNotContain("SQL", model.ErrorMessage);
+        Assert.DoesNotContain("private", model.ErrorMessage);
+    }
+
+    [Fact]
+    public void Archive_all_reports_saved_when_post_commit_snapshot_reload_fails()
+    {
+        using var service = new TimerService(DatabasePath);
+        var stopped = service.CreateTimer("Stopped", 0).Id;
+        var running = service.CreateTimer("Running", 0).Id;
+        service.Start(running, 1_000);
+        var model = new MainWindowViewModel(service, 2_000);
+
+        Assert.True(model.ArchiveAllStopped(500));
+
+        Assert.True(service.GetTimer(stopped).IsArchived);
+        Assert.Contains("The change was saved, but the list could not be reloaded", model.ErrorMessage);
+        Assert.Empty(model.ArchivedTimers);
+    }
+
     public void Dispose() => Directory.Delete(directory, recursive: true);
 }
