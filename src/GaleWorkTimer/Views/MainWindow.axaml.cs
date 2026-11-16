@@ -104,6 +104,42 @@ public sealed partial class MainWindow : Window
         await dialog.ShowDialog(this);
     }
 
+    private async void DeleteAllArchivedTimers(object? sender, RoutedEventArgs e)
+    {
+        if (!model.CanDeleteAllArchived) return;
+        var cancel = new Button { Content = "Cancel", IsDefault = true, IsCancel = true };
+        var delete = new Button { Content = "Delete all" };
+        delete.Classes.Add("destructive");
+        var error = new TextBlock { TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+        var dialog = new Window
+        {
+            Title = "Delete all archived timers?", Width = 460, SizeToContent = SizeToContent.Height,
+            CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new StackPanel
+            {
+                Margin = new Thickness(24), Spacing = 16,
+                Children =
+                {
+                    new TextBlock { Text = "Delete all archived timers?", TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                        FontWeight = Avalonia.Media.FontWeight.SemiBold },
+                    new TextBlock { Text = "This will permanently delete all archived timers and all of their history. This action cannot be undone.",
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap },
+                    error,
+                    new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12,
+                        HorizontalAlignment = HorizontalAlignment.Right, Children = { cancel, delete } }
+                }
+            }
+        };
+        cancel.Click += (_, _) => dialog.Close();
+        delete.Click += (_, _) =>
+        {
+            if (model.DeleteAllArchivedTimers(NowMs())) dialog.Close();
+            else error.Text = model.ErrorMessage;
+        };
+        dialog.Opened += (_, _) => cancel.Focus();
+        await dialog.ShowDialog(this);
+    }
+
     private async void EditTimer(object? sender, RoutedEventArgs e)
     {
         var timer = Row(sender);

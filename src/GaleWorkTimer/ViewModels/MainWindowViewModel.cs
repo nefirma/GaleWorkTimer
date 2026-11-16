@@ -23,6 +23,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public IReadOnlyList<TimerRow> Timers { get; private set; } = [];
     public IReadOnlyList<TimerRow> ArchivedTimers { get; private set; } = [];
     public bool CanArchiveAllStopped => Timers.Any(timer => timer.State == TimerState.Idle);
+    public bool CanDeleteAllArchived => ArchivedTimers.Count != 0;
     public IReadOnlyList<HistoryRow> History { get; private set; } = [];
     public string SuggestedColorKey => TimerPalette.NextKey(Timers.Count);
     public long TimersSnapshotAtMs { get; private set; }
@@ -46,6 +47,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public bool ArchiveAllStopped(long atMs) => Execute(() => service.ArchiveAllStopped(atMs), atMs);
     public bool RestoreTimer(long id, long atMs) => Execute(() => service.UnarchiveTimer(id, atMs), atMs);
     public bool DeleteTimer(long id, long snapshotAtMs) => Execute(() => service.DeleteTimer(id), snapshotAtMs);
+    public bool DeleteAllArchivedTimers(long snapshotAtMs) =>
+        Execute(service.DeleteAllArchived, snapshotAtMs, refreshOnFailure: false);
     public bool StartTimer(long id, long atMs) => Execute(() => service.Start(id, atMs), atMs);
     public bool PauseTimer(long id, long atMs) => Execute(() => service.Pause(id, atMs), atMs);
     public bool ResumeTimer(long id, long atMs) => Execute(() => service.Resume(id, atMs), atMs);
@@ -119,7 +122,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
-    private bool Execute(Action operation, long snapshotAtMs)
+    private bool Execute(Action operation, long snapshotAtMs, bool refreshOnFailure = true)
     {
         try
         {
@@ -143,8 +146,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 ArgumentException => "Enter a non-empty timer name, choose a palette color and use a valid timestamp.",
                 _ => "Could not save this change. Please try again."
             });
-            try { LoadTimers(snapshotAtMs); }
-            catch (Exception) { /* Keep the last persisted view if the DB is unavailable. */ }
+            if (refreshOnFailure)
+            {
+                try { LoadTimers(snapshotAtMs); }
+                catch (Exception) { /* Keep the last persisted view if the DB is unavailable. */ }
+            }
             return false;
         }
 
@@ -175,6 +181,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         ClearSelectedTotal();
         Changed(nameof(Timers));
         Changed(nameof(CanArchiveAllStopped));
+        Changed(nameof(CanDeleteAllArchived));
         Changed(nameof(ArchivedTimers));
         var byId = all.ToDictionary(timer => timer.Id);
         History = History.Where(row => byId.ContainsKey(row.Snapshot.Session.TimerId)).Select(row =>

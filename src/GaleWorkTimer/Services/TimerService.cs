@@ -130,6 +130,28 @@ public sealed class TimerService : IDisposable
         transaction.Commit();
     }
 
+    public void DeleteAllArchived()
+    {
+        using var transaction = connection.BeginTransaction(deferred: false);
+        using (var openSession = Command("""
+            SELECT 1 FROM timers t
+            JOIN sessions s ON s.timer_id = t.id
+            WHERE t.is_archived = 1 AND s.stopped_at_ms IS NULL
+            LIMIT 1;
+            """, transaction))
+        {
+            if (openSession.ExecuteScalar() is not null)
+                throw new TimerDomainException(TimerError.ActiveTimerCannotBeDeleted,
+                    "Stop archived timers before deleting them.");
+        }
+
+        Execute("DELETE FROM pauses WHERE session_id IN (SELECT s.id FROM sessions s JOIN timers t ON t.id = s.timer_id WHERE t.is_archived = 1);",
+            transaction);
+        Execute("DELETE FROM sessions WHERE timer_id IN (SELECT id FROM timers WHERE is_archived = 1);", transaction);
+        Execute("DELETE FROM timers WHERE is_archived = 1;", transaction);
+        transaction.Commit();
+    }
+
     private void SetArchived(long timerId, bool archived, long atMs)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(atMs);

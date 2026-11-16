@@ -93,26 +93,30 @@
                 </ListBox.ItemTemplate>
               </ListBox>
               <Expander Header="Archived timers" HorizontalAlignment="Stretch">
-                <ItemsControl ItemsSource="{Binding ArchivedTimers}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:TimerRow">
-                      <StackPanel Spacing="10" Margin="0,8">
-                        <Grid ColumnDefinitions="*,Auto">
-                          <TextBlock Classes="timerTitle" Text="{Binding Name}" />
-                          <Button Grid.Column="1" Classes="copyName" Click="CopyTimerName">
-                            <PathIcon Width="20" Height="20" Data="{x:Static views:CopyIcon.Geometry}" />
-                          </Button>
-                        </Grid>
-                        <TextBlock><Run Text="Total: " /><Run Text="{Binding TotalText}" /></TextBlock>
-                        <WrapPanel>
-                          <Button Content="Edit" Click="EditTimer" />
-                          <Button Content="Restore to list" Click="RestoreTimer" />
-                          <Button Classes="destructive" Content="Delete" IsEnabled="{Binding CanDelete}" Click="DeleteTimer" />
-                        </WrapPanel>
-                      </StackPanel>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <StackPanel Spacing="8">
+                  <Button Content="Delete all" Classes="destructive" HorizontalAlignment="Left"
+                          IsEnabled="{Binding CanDeleteAllArchived}" Click="DeleteAllArchivedTimers" />
+                  <ItemsControl ItemsSource="{Binding ArchivedTimers}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:TimerRow">
+                        <StackPanel Spacing="10" Margin="0,8">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Classes="timerTitle" Text="{Binding Name}" />
+                            <Button Grid.Column="1" Classes="copyName" Click="CopyTimerName">
+                              <PathIcon Width="20" Height="20" Data="{x:Static views:CopyIcon.Geometry}" />
+                            </Button>
+                          </Grid>
+                          <TextBlock><Run Text="Total: " /><Run Text="{Binding TotalText}" /></TextBlock>
+                          <WrapPanel>
+                            <Button Content="Edit" Click="EditTimer" />
+                            <Button Content="Restore to list" Click="RestoreTimer" />
+                            <Button Classes="destructive" Content="Delete" IsEnabled="{Binding CanDelete}" Click="DeleteTimer" />
+                          </WrapPanel>
+                        </StackPanel>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
               </Expander>
             </StackPanel>
           </ScrollViewer>

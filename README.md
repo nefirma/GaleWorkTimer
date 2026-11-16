@@ -69,6 +69,11 @@ only Stopped timers (including archived) can be deleted, after explicit confirma
 that all history will be removed. Cancel is the safe default. Running/Paused
 timers must be stopped manually first. One SQLite transaction deletes dependent
 pauses, sessions and the timer; any failure rolls back all records.
+The **Archived timers** section also provides **Delete all**: after a separate
+confirmation it permanently removes every persisted archived timer and its full
+history in one transaction, while leaving non-archived timers untouched. Cancel,
+Escape or closing the confirmation makes no change; the action is disabled when
+the archive is empty.
 
 A compact Fluent Copy icon beside each active/archived Timer title copies its
 exact name to the platform clipboard, without status or Total. Tooltip: **Copy
