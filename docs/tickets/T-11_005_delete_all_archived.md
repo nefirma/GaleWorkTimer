@@ -54,7 +54,7 @@ Branch and source revision are not assigned in this draft. Use only identities r
 
 ### Expected but not proved
 - `NOT_YET_PROVEN`: baseline build/tests и rendered Delete all dialog на назначенной AXLE revision.
-- `NOT_YET_PROVEN`: доступность native display в worker environment для scoped renderer evidence; при недоступности это validation-infrastructure blocker, а не PASS.
+- `NOT_YET_PROVEN`: доступность native display для scoped renderer evidence; для waived dialog evidence это не blocker, для обязательного AXLE fixture отсутствие display остаётся blocker.
 - Remote/release state не доказан; проверять только назначенную AXLE revision.
 
 ## Spec Alignment
@@ -97,7 +97,7 @@ Branch and source revision are not assigned in this draft. Use only identities r
 - Переиспользовать существующий native Avalonia ShowDialog и service/ViewModel error flow.
 - Одна transaction для всего набора: validation → pauses → sessions → timers → commit.
 - Не вызывать цикл отдельно commit-ящих DeleteTimer. Внутреннее переиспользование допустимо без вложенных транзакций и новой архитектуры.
-- Native renderer evidence: запустить AXLE-owned fixture через configured `AXLE_DOTNET_UI_SMOKE_PROJECT` как регрессию Archive all/Restore; fixture не редактировать. Для Delete all dialog использовать scoped project test в `tests/GaleWorkTimer.Tests/TimerBulkDeleteSmokeTests.cs` или реальные desktop interactions.
+- Native renderer evidence: запустить AXLE-owned fixture через configured `AXLE_DOTNET_UI_SMOKE_PROJECT` как регрессию Archive all/Restore; fixture не редактировать. Renderer-backed Delete all dialog evidence waived и остаётся NOT_YET_PROVEN.
 - WHY: атомарность всего набора исключает частичное удаление архива; service guard защищает не только UI-вход.
 
 ## Forbidden Shortcuts
@@ -108,7 +108,15 @@ Branch and source revision are not assigned in this draft. Use only identities r
 - Не расширять scope до AXLE fixture, migration, retention или recovery subsystem.
 
 ## Acceptance Criteria
-PASS разрешён только при доказательстве всех AC.
+PASS требует доказательства всех AC, кроме evidence, явно waived ниже; waived evidence остаётся NOT_YET_PROVEN и не считается PASS.
+
+### Owner UI-evidence Waiver (Phil, 2026-11-16)
+- Phil разрешает не выполнять: ручное взаимодействие с Delete all dialog и автоматический renderer-backed test открытия dialog, Cancel/Escape/close/Enter/focus, confirmation и видимой ошибки.
+- Waiver относится к evidence AC1 (dialog open), AC2 (Cancel/Escape/close/Enter/focus) и AC6 (visible error); сам product behavior остаётся обязательным.
+- Эти сценарии остаются NOT_YET_PROVEN; их отсутствие не блокирует delivery/review и не объявляется PASS.
+- Сохраняются: все продуктовые AC, атомарность, rollback, persisted eligibility, сохранность остальных данных, доступные service/ViewModel tests, build, существующие автоматические проверки и configured Archive all/Restore fixture как регрессия.
+- Waiver не меняет scope/IR, не разрешает новый UI harness и не разрешает правки AXLE-owned fixture.
+
 - [ ] AC1: При непустом архиве нажатие `Delete all` открывает ровно одно подтверждение с указанным предупреждением. До подтверждения записи не меняются.
 - [ ] AC2: Cancel, Escape, закрытие dialog и Enter при начальном focus оставляют все данные и UI snapshots неизменными. Destructive действие не является default.
 - [ ] AC3: Явное подтверждение удаляет все archived timer, включая zero-session и timer с несколькими sessions/pauses, без orphan rows; результат сохраняется после reopen БД.
@@ -123,13 +131,13 @@ PASS разрешён только при доказательстве всех 
 - Mixed archived/nonarchived fixture; сравнить все persisted поля и dependent rows до/после и после reopen.
 - Negative fixture с искусственно созданной archived/open-session комбинацией только в isolated DB; весь набор сохраняется.
 - Rollback после удаления dependents/промежуточного кандидата, не только ошибка до первой записи.
-- Native renderer evidence для dialog: open, Cancel, Escape, Close, Enter при начальном focus, confirm, injected error; один только ViewModel test не доказывает focus/keyboard semantics.
+- Native renderer evidence для dialog (open, Cancel, Escape, Close, Enter при начальном focus, confirm, injected error) waived и остаётся NOT_YET_PROVEN; ViewModel test не доказывает focus/keyboard semantics и не должен называться PASS.
 - AXLE fixture run подтверждает отсутствие регрессии Archive all/Restore; он не доказывает Delete all.
 - Anti-collapse: «удалить архив» не равно «удалить все Stopped»; nonarchived Stopped обязан остаться.
 
 ## Validation Boundaries
 - Affected xUnit tests, `dotnet build`, один финальный полный `dotnet test` на final revision и final changed bytes.
-- Native renderer: configured AXLE fixture плюс scoped `TimerBulkDeleteSmokeTests` или реальный desktop smoke; указывать exact platform/display. Windows behavior не утверждать без Windows evidence.
+- Native renderer: configured AXLE fixture обязателен как регрессия Archive all/Restore и не является доказательством Delete all. Scoped renderer-backed dialog test и реальный desktop smoke waived и остаются NOT_YET_PROVEN; exact platform/display указывать только для выполненных runs. Windows behavior не утверждать без Windows evidence.
 - Delivery evidence: ignored `.axle-midi/delivery/<ticket_id>_delivery_pack.md`; validation runs сообщают observed identity по текущему harness contract; не добавлять tracked evidence outputs после validation.
 - Прямой SQL допустим только как тестовая failure injection; production data mutation запрещена.
 - Lead синхронизирует `docs/TZ.md` §§20/40 отдельным approved `lead_documentation` шагом, привязанным к reviewed PR head; затем выполняется свежий review. Senior обновляет только scoped wiki/guide, не Lead-owned SSOT.
@@ -138,8 +146,8 @@ PASS разрешён только при доказательстве всех 
 ## Efficiency and Stop Rules
 - Не повторять неизменённую команду/тест; одна corrected retry после конкретной причины, затем stop на втором отказе той же границы.
 - При неизвестных authority/identity/mechanism или конфликте семантики остановиться, не расширять scope.
-- Любой обязательный NO/NOT_YET_PROVEN запрещает PASS. После PASS не начинать release.
-- Отсутствие display/renderer — BLOCKED с точной причиной, не замена UI AC на static XAML check.
+- Любой обязательный (non-waived) NO/NOT_YET_PROVEN запрещает PASS; waived evidence не переименовывать в PASS. После PASS не начинать release.
+- Отсутствие display/renderer блокирует только обязательный fixture regression; для waived dialog evidence это NOT_YET_PROVEN, а не BLOCKED и не PASS.
 
 ## Security Notes
 - Пользовательские имена не подставлять в SQL; сохранять parameterization и service-side guards.
