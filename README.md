@@ -81,6 +81,15 @@ name**; accessible name: **Copy timer name**. Clipboard errors use the existing
 error message area without changing data or refreshing snapshots. The official
 Microsoft SVG geometry is rendered natively, with no SVG/icon package dependency;
 its [MIT notice](src/GaleWorkTimer/Assets/Icons/LICENSE.txt) is included in build/publish output.
+Timer rows now reserve a 32-DIP trailing gutter inside the shared Timers scroll
+content, keeping both active and archived copy targets away from its right edge
+while leaving the existing automatic scrolling behavior intact. This is a
+static layout constraint, not renderer or Windows visual proof; actual overlap
+removal remains **NOT_YET_PROVEN** under the approved UI-evidence waiver. See
+[copy-name layout evidence](docs/wiki/pages/copy-name-scrollbar.md) for coverage
+and the validation boundary. On 2026-11-17, final `dotnet build` succeeded
+(0 warnings, 0 errors) and `dotnet test` passed all 137 tests (0 failed, 0 skipped); these
+checks do not prove rendered layout or Windows runtime behavior.
 
 Select active Timer checkboxes and press **Общее время** to sum their cumulative
 Total snapshots as `HH:MM` (for example, `126:15`). Pauses are excluded and
