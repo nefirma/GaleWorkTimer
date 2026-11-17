@@ -29,13 +29,14 @@
   "goal": "Deliver a statically justified XAML-only copy-name/scrollbar layout fix for active and archived rows; actual overlap removal without renderer remains NOT_YET_PROVEN under Phil's UI-evidence waiver.",
   "human_gates": [],
   "ir_version": 1,
+  "lead_documentation_paths": [],
   "model_budget": {
     "escalation_allowed_to": "T3_REASONING",
     "max_attempts": 2,
     "tier": "T1_CHEAP"
   },
   "priority": "P1",
-  "project": "default",
+  "project": "galeworktimer",
   "risk": "low",
   "scope_paths": [
     "src/GaleWorkTimer/Views/MainWindow.axaml",
@@ -55,5 +56,9 @@
     "No new dependencies or UI harness; no changes outside the four Scope Paths. Services/**, ViewModels/** and MainWindow.axaml.cs mutations are forbidden. Lead Documentation Paths is empty; Lead and Senior have no authorization to edit docs/TZ.md.",
     "README.md, USER_GUIDE_RU.md and docs/wiki/pages/copy-name-scrollbar.md must agree with the fix, actual validation and waiver. PASS requires AC1-AC5 within the explicitly waived evidence boundary.",
     "The promoted IR must use the newly assigned ticket ID and match this brief. Do not restore or reuse cancelled T-12 branch, worktree, WIP or workflow state."
+  ],
+  "worker_forbidden_paths": [
+    "docs/TZ.md",
+    "docs/ssot/**"
   ]
 }
