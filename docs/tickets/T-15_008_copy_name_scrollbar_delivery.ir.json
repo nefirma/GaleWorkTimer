@@ -1,0 +1,64 @@
+{
+  "allowed_action_categories": [
+    "READ_ONLY_LOCAL",
+    "WORKSPACE_MUTATION",
+    "VCS_MUTATION"
+  ],
+  "done_definition": {
+    "extra": [],
+    "requires_evidence_for_all_ac": true,
+    "requires_merge": true,
+    "requires_reconcile": true
+  },
+  "forbidden_action_categories": [
+    "EXTERNAL_SIDE_EFFECT",
+    "DESTRUCTIVE_OR_IRREVERSIBLE_ACTION",
+    "PRODUCTION_OR_CUSTOMER_IMPACTING_ACTION",
+    "SECRET_READING_ACTION"
+  ],
+  "forbidden_paths": [
+    "Services/**",
+    "**/Services/**",
+    "ViewModels/**",
+    "**/ViewModels/**",
+    "src/GaleWorkTimer/Views/MainWindow.axaml.cs",
+    "**/MainWindow.axaml.cs",
+    "docs/TZ.md",
+    "docs/ssot/**"
+  ],
+  "goal": "Deliver an active/archived copy-name layout fix that statically separates the copy hit target from the scrollbar while preserving existing behavior; actual overlap removal without renderer remains NOT_YET_PROVEN under Phil's waiver.",
+  "human_gates": [],
+  "ir_version": 1,
+  "lead_documentation_paths": [],
+  "model_budget": {
+    "escalation_allowed_to": "T3_REASONING",
+    "max_attempts": 2,
+    "tier": "T1_CHEAP"
+  },
+  "priority": "P1",
+  "project": "default",
+  "risk": "low",
+  "scope_paths": [
+    "src/GaleWorkTimer/Views/MainWindow.axaml",
+    "README.md",
+    "USER_GUIDE_RU.md",
+    "docs/wiki/pages/copy-name-scrollbar.md"
+  ],
+  "task_class": "scoped_feature",
+  "ticket_id": "T-15",
+  "title": "HANDOFF TICKET: Copy-name / scrollbar layout \u2014 reviewed fix with UI-evidence waiver",
+  "validation_contract": [
+    "Phil authorizes this new ticket's ordinary automatic worker execution after promotion and product PR merge only after successful review and mandatory checks. Do not add its ID to merge_hold_tickets; preserve unrelated entries.",
+    "Required: dotnet build and dotnet test for the existing solution, with exit codes, test counts, source revision/digest and actual coverage limits. No new dependencies or UI harness.",
+    "Required: static layout reasoning for active and archived rows; scrollbar hidden, visible and expanded; archive collapsed/expanded; long/short names; minimum/normal supported width; Light/Dark. Preserve scrolling and other controls.",
+    "Required: static UI wiring/accessibility proof: same CopyTimerName handler, row data context, icon, tooltip Copy name, accessible name Copy timer name, focusability and theme semantics. Preserve clipboard success/failure and timer/snapshot behavior.",
+    "UI-evidence waiver approved by Phil: manual interaction and automatic renderer-backed checks are NOT required. Do not require UI smoke, screenshots, renderer harness or rendered geometry. \u0424\u0430\u043a\u0442\u0438\u0447\u0435\u0441\u043a\u043e\u0435 \u0443\u0441\u0442\u0440\u0430\u043d\u0435\u043d\u0438\u0435 overlap \u0431\u0435\u0437 renderer \u043e\u0441\u0442\u0430\u0451\u0442\u0441\u044f NOT_YET_PROVEN; state this in delivery and documentation. This specific uncertainty does not block waiver-scoped PASS or merge.",
+    "Change only the four Scope Paths. Services/**, ViewModels/**, MainWindow.axaml.cs, docs/TZ.md and docs/ssot/** edits are forbidden. Lead Documentation Paths is empty; Lead has no docs/TZ.md edit authority. Do not modify dependencies, tests or harness/config files.",
+    "README.md, USER_GUIDE_RU.md and docs/wiki/pages/copy-name-scrollbar.md must match the delivered layout, actual checks and waiver. No claim of visual or Windows runtime proof.",
+    "Promoted IR must match the new ticket ID, project galeworktimer, scope and this brief. Never restore or reuse cancelled tickets or their worktrees/WIP."
+  ],
+  "worker_forbidden_paths": [
+    "docs/TZ.md",
+    "docs/ssot/**"
+  ]
+}
