@@ -37,12 +37,12 @@ T-2 adds a manual Windows installer/update candidate; it is not a released Windo
 Build and statically verify the win-x64, self-contained files on CachyOS:
 
 ```bash
-DOTNET="$HOME/.dotnet/dotnet" bash packaging/build-windows-candidate.sh 2.6.0
+DOTNET="$HOME/.dotnet/dotnet" bash packaging/build-windows-candidate.sh 2.6.2
 ```
 
-The script writes `GaleWorkTimer.Setup.exe` and `GaleWorkTimer-win-x64.zip` under `artifacts/windows-candidate/2.6.0/`, refuses to overwrite that output directory, and prints both SHA-256 values. The ZIP contains the complete publish tree and a per-file SHA-256 manifest; hashes prove package integrity, not publisher identity. No artifact is uploaded or published.
+The script writes `GaleWorkTimer.Setup.exe` with the application ZIP embedded under `artifacts/windows-candidate/2.6.2/`, refuses to overwrite that output directory, and prints both SHA-256 values. Only the EXE is needed for installation. A separate `GaleWorkTimer-win-x64.zip` is retained for explicit ZIP updates and verification. The ZIP contains the complete publish tree and a per-file SHA-256 manifest; hashes prove package integrity, not publisher identity. No artifact is uploaded or published.
 
-When Phil supplies a candidate, run `GaleWorkTimer.Setup.exe`, choose the ZIP, and install/update under `%LOCALAPPDATA%\Programs\GaleWorkTimer`. The stable entry stays `GaleWorkTimer.exe`; application data remains outside the install tree at `%LOCALAPPDATA%\NeFirma\GaleWorkTimer\data.db`. Close GaleWorkTimer before an update. The next stable-entry launch recovers the previous verified payload if a switch was interrupted. The existing public T2.5 ZIP above remains the portable release until a Windows candidate is accepted.
+When Phil supplies a candidate, run `GaleWorkTimer.Setup.exe` to install/update its embedded package under `%LOCALAPPDATA%\Programs\GaleWorkTimer`. To use a separate ZIP, run `GaleWorkTimer.Setup.exe "path\to\GaleWorkTimer-win-x64.zip"`. `GaleWorkTimer.Setup.exe --verify-bundled` verifies the embedded ZIP without installing it (exit code 0 means success). The stable entry stays `GaleWorkTimer.exe`; application data remains outside the install tree at `%LOCALAPPDATA%\NeFirma\GaleWorkTimer\data.db`. Close GaleWorkTimer before an update. The next stable-entry launch recovers the previous verified payload if a switch was interrupted. The existing public T2.5 ZIP above remains the portable release until a Windows candidate is accepted.
 
 Candidate checks on CachyOS do not prove Windows runtime behavior. W1–W4 remain `NOT_YET_PROVEN`; see [packaging evidence](docs/wiki/packaging.md).
 

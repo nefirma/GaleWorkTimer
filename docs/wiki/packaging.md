@@ -1,5 +1,31 @@
 # T-2 stable Windows install/update candidate
 
+## Single-file installer (2.6.2)
+
+The current build embeds the verified application ZIP in `GaleWorkTimer.Setup.exe`.
+Only that EXE is needed for installation or update. An explicit ZIP argument remains supported.
+The invalid `OpenFileName` structure and native file picker have been removed.
+The bundled package still passes through `InstallManager.InstallPackage`; validation, recovery,
+stable entry, and application-data boundaries are unchanged. Temporary-package cleanup is best-effort:
+a Windows lock/access failure can leave a ZIP in the user temp directory, without changing the install result.
+Unexpected managed failures produce a fixed error code and exception type, not private paths or stack traces.
+Use `GaleWorkTimer.Setup.exe --verify-bundled` to verify the embedded package without installation.
+See `README.md` and `USER_GUIDE_RU.md` for current commands. The evidence below describes
+the historical two-file candidate; it does not establish Windows acceptance of 2.6.2.
+
+**EVIDENCE (2026-11-21):** On branch `ai-engineer/2026-11-21-single-exe-installer`, based on
+`ecc4b47e1a8b401275c9e6db84b6edeea3cc9ed6`, the new bundled-install test first failed in both cases
+against the implementation stub. After implementation, the focused Release filter
+`FullyQualifiedName~Bundled_package_installs_verified_bytes_or_rejects_tampering_without_touching_data|FullyQualifiedName~Install_and_update_select_verified_payload_at_one_stable_entry_without_touching_data`
+passed all 3 cases in `tests/GaleWorkTimer.Packaging.Tests/GaleWorkTimer.Packaging.Tests.csproj`.
+`DOTNET=/home/phil/.dotnet/dotnet bash packaging/build-windows-candidate.sh 2.6.2 2.6.2-single-exe`
+exited 0. The resulting `artifacts/windows-candidate/2.6.2-single-exe/GaleWorkTimer.Setup.exe`
+is 150058035 bytes; SHA-256: `bc81cf42c3bfc945356bd8cff7b8b64899f848a0f9ca00c5d3b855ea400caf47`.
+The final EXE ran under Wine 11.16 with `--verify-bundled` in a separate validation prefix;
+exit 0, version 2.6.2, 228 files, ZIP SHA-256 `3e47afe761c057faf6fa1e1439b754c1d7fe9481c6591f4615764ec86e58e3b0`.
+No application installation was performed. This smoke proves bundled-resource access and verification,
+not no-argument installation, native Windows UI, or acceptance on Galia's Windows 11.
+
 ## Candidate boundary
 
 **EVIDENCE:** The local candidate is `GaleWorkTimer.Setup.exe` plus `GaleWorkTimer-win-x64.zip`, built for `win-x64` and self-contained.

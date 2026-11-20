@@ -22,21 +22,22 @@ mkdir -p "${output_dir}/app-publish" "${output_dir}/setup-publish"
     -p:DebugType=None -p:DebugSymbols=false \
     --output "${output_dir}/app-publish"
 
-"${dotnet_command}" publish packaging/GaleWorkTimer.Setup/GaleWorkTimer.Setup.csproj \
-    --configuration Release --runtime win-x64 --self-contained true \
-    -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
-    -p:Version="${version}" -p:AssemblyVersion="${version}" \
-    -p:FileVersion="${version}" -p:InformationalVersion="${version}" \
-    --output "${output_dir}/setup-publish"
-
 "${dotnet_command}" run --project packaging/GaleWorkTimer.Setup/GaleWorkTimer.Setup.csproj \
     --configuration Release -- --pack "${output_dir}/app-publish" \
     "${output_dir}/GaleWorkTimer-win-x64.zip" "${version}"
+
+"${dotnet_command}" run --project packaging/GaleWorkTimer.Setup/GaleWorkTimer.Setup.csproj \
+    --configuration Release -- --verify "${output_dir}/GaleWorkTimer-win-x64.zip"
+
+"${dotnet_command}" publish packaging/GaleWorkTimer.Setup/GaleWorkTimer.Setup.csproj \
+    --configuration Release --runtime win-x64 --self-contained true \
+    -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+    -p:EmbeddedPackagePath="${PWD}/${output_dir}/GaleWorkTimer-win-x64.zip" \
+    -p:Version="${version}" -p:AssemblyVersion="${version}" \
+    -p:FileVersion="${version}" -p:InformationalVersion="${version}" \
+    --output "${output_dir}/setup-publish"
 
 cp "${output_dir}/setup-publish/GaleWorkTimer.Setup.exe" "${output_dir}/GaleWorkTimer.Setup.exe"
 
 "${dotnet_command}" run --project packaging/GaleWorkTimer.Setup/GaleWorkTimer.Setup.csproj \
     --configuration Release -- --sha256 "${output_dir}/GaleWorkTimer.Setup.exe"
-
-"${dotnet_command}" run --project packaging/GaleWorkTimer.Setup/GaleWorkTimer.Setup.csproj \
-    --configuration Release -- --verify "${output_dir}/GaleWorkTimer-win-x64.zip"

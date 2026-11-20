@@ -6,4 +6,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>GaleWorkTimer.Setup</AssemblyName>
   </PropertyGroup>
+  <ItemGroup Condition="'$(EmbeddedPackagePath)' != ''">
+    <EmbeddedResource Include="$(EmbeddedPackagePath)" LogicalName="GaleWorkTimer.Package.zip" />
+  </ItemGroup>
 </Project>
