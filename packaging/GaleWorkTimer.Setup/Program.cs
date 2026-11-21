@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Text;
 using GaleWorkTimer.Packaging;
 
 namespace GaleWorkTimer.Setup;
@@ -8,11 +7,25 @@ internal static class Program
 {
     private const uint MessageBoxInformation = 0x00000040;
     private const uint MessageBoxError = 0x00000010;
-    private const uint FileMustExist = 0x00001000;
-    private const uint PathMustExist = 0x00000800;
-    private const uint NoChangeDirectory = 0x00000008;
 
     private static int Main(string[] args)
+    {
+        try
+        {
+            return Run(args);
+        }
+        catch (Exception exception)
+        {
+            var reason = AddCopyInstruction($"[SETUP_FAILED:{exception.GetType().Name}] Не удалось выполнить установку или проверку GaleWorkTimer.");
+            if (OperatingSystem.IsWindows())
+                ShowMessage(reason, MessageBoxError);
+            else
+                Console.Error.WriteLine(reason);
+            return 1;
+        }
+    }
+
+    private static int Run(string[] args)
     {
         if (args.Length == 4 && args[0] == "--pack")
             return RunPack(args[1], args[2], args[3]);
@@ -20,6 +33,11 @@ internal static class Program
             return RunVerify(args[1]);
         if (args.Length == 2 && args[0] == "--sha256")
             return RunSha256(args[1]);
+        if (args.Length == 1 && args[0] == "--verify-bundled")
+        {
+            using var package = OpenBundledPackage();
+            return WithBundledPackage(package, RunVerify);
+        }
         if (!OperatingSystem.IsWindows())
         {
             Console.Error.WriteLine("The installer and launcher run on Windows; package creation and verification run on Linux.");
@@ -49,11 +67,14 @@ internal static class Program
             ShowMessage("Укажи один ZIP-пакет обновления.", MessageBoxError);
             return 2;
         }
-        var packagePath = args.Length == 1 ? args[0] : SelectPackage();
-        if (string.IsNullOrWhiteSpace(packagePath))
-            return 0;
-
-        var result = manager.InstallPackage(packagePath, processPath!);
+        InstallResult result;
+        if (args.Length == 1)
+            result = manager.InstallPackage(args[0], processPath!);
+        else
+        {
+            using var package = OpenBundledPackage();
+            result = InstallBundledPackage(manager, processPath!, package);
+        }
         if (result.Outcome is InstallOutcome.Installed or InstallOutcome.Updated)
         {
             ShowMessage($"Версия {result.InstalledVersion} установлена. Стабильный запуск: {result.StableEntryPath}",
@@ -62,6 +83,37 @@ internal static class Program
         }
         ShowMessage(AddCopyInstruction(result.FailureReason ?? "Установка отклонена; текущая проверенная версия не изменена."), MessageBoxError);
         return 1;
+    }
+
+    private static Stream OpenBundledPackage() =>
+        typeof(Program).Assembly.GetManifestResourceStream("GaleWorkTimer.Package.zip")
+        ?? throw new InvalidDataException("The installer has no bundled package.");
+
+    internal static InstallResult InstallBundledPackage(InstallManager manager, string launcherPath, Stream package) =>
+        WithBundledPackage(package, path => manager.InstallPackage(path, launcherPath));
+
+    private static T WithBundledPackage<T>(Stream package, Func<string, T> action)
+    {
+        var directory = Directory.CreateTempSubdirectory("GaleWorkTimer-Setup-");
+        var path = Path.Combine(directory.FullName, "package.zip");
+        try
+        {
+            using (var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                package.CopyTo(output);
+            return action(path);
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(path);
+                directory.Delete();
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // A locked temporary package must not turn a committed installation into a reported failure.
+            }
+        }
     }
 
     private static int RunPack(string publishDirectory, string packagePath, string version)
@@ -108,24 +160,6 @@ internal static class Program
         }
     }
 
-    private static string? SelectPackage()
-    {
-        var fileName = new StringBuilder(32768);
-        var fileTitle = new StringBuilder(1024);
-        var dialog = new OpenFileName
-        {
-            StructSize = Marshal.SizeOf<OpenFileName>(),
-            Filter = "GaleWorkTimer package (*.zip)\0*.zip\0All files (*.*)\0*.*\0\0",
-            File = fileName,
-            MaxFile = fileName.Capacity,
-            FileTitle = fileTitle,
-            MaxFileTitle = fileTitle.Capacity,
-            Title = "Выбери пакет GaleWorkTimer",
-            Flags = FileMustExist | PathMustExist | NoChangeDirectory
-        };
-        return GetOpenFileNameW(ref dialog) ? fileName.ToString() : null;
-    }
-
     private static bool SamePath(string? left, string right) => left is not null &&
         string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), StringComparison.OrdinalIgnoreCase);
 
@@ -134,37 +168,7 @@ internal static class Program
     private static void ShowMessage(string text, uint icon) =>
         MessageBoxW(IntPtr.Zero, text, "GaleWorkTimer", icon);
 
-    [DllImport("comdlg32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "GetOpenFileNameW")]
-    private static extern bool GetOpenFileNameW(ref OpenFileName dialog);
-
     [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "MessageBoxW")]
     private static extern int MessageBoxW(IntPtr owner, string text, string caption, uint type);
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    private struct OpenFileName
-    {
-        public int StructSize;
-        public IntPtr Owner;
-        public IntPtr Instance;
-        public string Filter;
-        public string? CustomFilter;
-        public int MaxCustomFilter;
-        public int FilterIndex;
-        public StringBuilder File;
-        public int MaxFile;
-        public StringBuilder FileTitle;
-        public int MaxFileTitle;
-        public string? InitialDirectory;
-        public string Title;
-        public uint Flags;
-        public short FileOffset;
-        public short FileExtension;
-        public string? DefaultExtension;
-        public IntPtr CustomData;
-        public IntPtr Hook;
-        public string? TemplateName;
-        public IntPtr Reserved;
-        public int Reserved2;
-        public uint FlagsEx;
-    }
 }

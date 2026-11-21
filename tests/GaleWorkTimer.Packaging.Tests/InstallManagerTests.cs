@@ -57,6 +57,29 @@ public sealed class InstallManagerTests : IDisposable
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Bundled_package_installs_verified_bytes_or_rejects_tampering_without_touching_data(bool tamperHash)
+    {
+        var package = CreatePackage("2.6.2", "bundled-payload"u8.ToArray(), tamperHash: tamperHash);
+        var dataBefore = CaptureDataSentinels();
+        using var stream = File.OpenRead(package);
+
+        var result = Setup.Program.InstallBundledPackage(new InstallManager(installRoot), launcher, stream);
+
+        Assert.Equal(tamperHash ? InstallOutcome.Rejected : InstallOutcome.Installed, result.Outcome);
+        if (tamperHash)
+            Assert.False(Directory.Exists(installRoot));
+        else
+        {
+            Assert.Equal("2.6.2", result.InstalledVersion);
+            Assert.Equal("bundled-payload"u8.ToArray(), File.ReadAllBytes(result.ExecutablePath!));
+            Assert.Equal("launcher"u8.ToArray(), File.ReadAllBytes(result.StableEntryPath));
+        }
+        AssertDataSentinels(dataBefore);
+    }
+
+    [Theory]
     [InlineData(false, "INSTALL_IO")]
     [InlineData(true, "INSTALL_ACCESS")]
     public void Pre_transaction_failure_rejects_update_and_preserves_installed_payload_and_data(
