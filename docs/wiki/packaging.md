@@ -1,5 +1,39 @@
 # T-2 stable Windows install/update candidate
 
+## Filename-independent installer and desktop shortcut (2.6.3)
+
+The installer no longer checks its downloaded filename. Stable launch still uses the installed
+entry path; desktop launch uses a real `GaleWorkTimer.lnk` targeting that entry, never a copied EXE
+or a rotating payload slot. The shortcut uses the current user's Windows desktop known folder
+and Windows Script Host COM shortcut creation, with an STA entry point. No administrator rights,
+PowerShell, new packages, or changes to the application-data path are required.
+Shortcut creation runs only after a successful install/update. Its failure is reported as
+`SHORTCUT_FAILED` while preserving the successful installation result. Existing reparse points
+at the `.lnk` path are refused; unrelated desktop files and old EXE copies are not deleted.
+Phil authorized the 2.6.3 fix, ordinary install/shortcut smoke in the available environment,
+and publication on GitHub and Gitea. Native Windows 11 acceptance remains separate.
+
+**EVIDENCE (2026-11-21):** The new completion regression first failed in both cases against
+the deliberate stub. After implementation, the focused Release tests for completion/shortcut failure,
+bundled valid/tampered packages, and the existing explicit ZIP install/update path passed 5/5.
+`DOTNET=/home/phil/.dotnet/dotnet bash packaging/build-windows-candidate.sh 2.6.3 2.6.3-desktop-shortcut`
+exited 0. The final EXE is 150062131 bytes, SHA-256
+`97ae6ebb87b62eb91ed0e6cfb911475dbce549abc3295f682e7813c8fdeaeece`.
+In a test-owned Wine 11.16 prefix with physically confined Desktop/LocalAppData/Temp, a copy
+named `Gale WorkTimer Setup (1).exe` installed 2.6.3 with no arguments. The actual generated
+`.lnk` decoded to `C:\gwt\LocalAppData\Programs\GaleWorkTimer\GaleWorkTimer.exe`, correct working
+directory, and empty arguments. No host desktop files or existing user DB were used.
+
+**NOT_YET_PROVEN:** The first shell-open attempt logged an unsymbolized CLR exception
+`e0434352`. A subsequent launcher diagnostic created the test DB and reached the payload;
+then a direct-payload diagnostic and a separate actual `.lnk` shell-open each displayed the
+1020x660 GaleWorkTimer main window and closed gracefully, exit 0. Both used the existing test
+DB; the initial failure was not explained or reproduced. Mesa warnings alone do not establish
+a graphics cause. Evidence is retained under `artifacts/wine-smoke-2.6.3`, including
+`prefix/drive_c/gwt/Temp/shortcut-open.summary.json`. This proves observed shortcut launch under
+Wine after DB initialization, not reliable first-run behavior or native Windows acceptance.
+SDK-hosted `dotnet Setup.dll` installation is unsupported; smoke used the actual self-contained EXE.
+
 ## Single-file installer (2.6.2)
 
 The current build embeds the verified application ZIP in `GaleWorkTimer.Setup.exe`.

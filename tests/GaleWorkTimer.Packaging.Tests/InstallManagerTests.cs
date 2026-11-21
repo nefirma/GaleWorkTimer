@@ -531,6 +531,35 @@ public sealed class InstallManagerTests : IDisposable
         AssertDataSentinels(dataBefore);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Completed_install_links_to_stable_entry_and_reports_shortcut_failure_without_rejecting_install(bool shortcutFails)
+    {
+        var renamedInstaller = Path.Combine(directory, "Любое имя установщика (2).exe");
+        File.Copy(launcher, renamedInstaller);
+        var dataBefore = CaptureDataSentinels();
+        var result = new InstallManager(installRoot).InstallPackage(
+            CreatePackage("2.6.3", "payload-263"u8.ToArray()), renamedInstaller);
+        string? shortcutTarget = null;
+
+        var message = Setup.Program.CompleteInstallation(result, target =>
+        {
+            shortcutTarget = target;
+            if (shortcutFails)
+                throw new UnauthorizedAccessException("Private test path must not appear in UI.");
+        });
+
+        Assert.Equal(InstallOutcome.Installed, result.Outcome);
+        Assert.Equal(Path.Combine(installRoot, "GaleWorkTimer.exe"), shortcutTarget);
+        Assert.Contains("2.6.3", message);
+        Assert.Contains("установлена", message);
+        Assert.Equal(shortcutFails, message.Contains("[SHORTCUT_FAILED:UnauthorizedAccessException]"));
+        Assert.DoesNotContain("Private test path", message);
+        Assert.True(File.Exists(result.StableEntryPath));
+        AssertDataSentinels(dataBefore);
+    }
+
     private string CreatePackage(string version, byte[] executable, string? extraPath = null,
         int? extraAttributes = null, bool tamperHash = false, bool omitRuntimeConfig = false,
         string? packageFileName = null)
