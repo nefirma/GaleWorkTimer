@@ -8,6 +8,7 @@ internal static class Program
     private const uint MessageBoxInformation = 0x00000040;
     private const uint MessageBoxError = 0x00000010;
 
+    [STAThread]
     private static int Main(string[] args)
     {
         try
@@ -56,12 +57,6 @@ internal static class Program
             return launch.Outcome == InstallOutcome.Rejected ? 1 : 0;
         }
 
-        if (!string.Equals(Path.GetFileName(processPath), "GaleWorkTimer.Setup.exe", StringComparison.OrdinalIgnoreCase))
-        {
-            ShowMessage("Для установки запусти опубликованный GaleWorkTimer.Setup.exe без .NET SDK.", MessageBoxError);
-            return 2;
-        }
-
         if (args.Length > 1)
         {
             ShowMessage("Укажи один ZIP-пакет обновления.", MessageBoxError);
@@ -77,12 +72,25 @@ internal static class Program
         }
         if (result.Outcome is InstallOutcome.Installed or InstallOutcome.Updated)
         {
-            ShowMessage($"Версия {result.InstalledVersion} установлена. Стабильный запуск: {result.StableEntryPath}",
-                MessageBoxInformation);
+            ShowMessage(CompleteInstallation(result, DesktopShortcut.Create), MessageBoxInformation);
             return 0;
         }
         ShowMessage(AddCopyInstruction(result.FailureReason ?? "Установка отклонена; текущая проверенная версия не изменена."), MessageBoxError);
         return 1;
+    }
+
+    internal static string CompleteInstallation(InstallResult result, Action<string> createShortcut)
+    {
+        var message = $"Версия {result.InstalledVersion} установлена. Стабильный запуск: {result.StableEntryPath}";
+        try
+        {
+            createShortcut(result.StableEntryPath);
+            return message + "\nДля запуска используй ярлык GaleWorkTimer на рабочем столе.";
+        }
+        catch (Exception exception)
+        {
+            return AddCopyInstruction(message + $"\n[SHORTCUT_FAILED:{exception.GetType().Name}] Не удалось создать ярлык на рабочем столе. Установка завершена; приложение можно запустить по указанному выше пути.");
+        }
     }
 
     private static Stream OpenBundledPackage() =>
